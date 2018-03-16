@@ -60,13 +60,24 @@ def read(node,key,size,hierarchy,logger):
 			logger.info(out)
 			
 
+def collect_stats(hierarchy):
+	for i in hierarchy:
+		print "Cache Name", i
+		#print hierarchy[i].cache
+		print "Hit Count" , hierarchy[i].hit_count
+		print "Miss Count", hierarchy[i].miss_count
+
+
 
 if __name__ == '__main__':
 	#input_file = config.get('section', 'input_file')
 	parser = argparse.ArgumentParser(description='Simulate a cache')
     	parser.add_argument('-c','--config-file', help='Configuration file for the memory heirarchy', required=True)
+    	parser.add_argument('-p', '--pretty', help='Use pretty colors', required=False, action='store_true')
 	arguments = vars(parser.parse_args())
 
+	if arguments['pretty']:
+        	import colorer
 	
         config_file = arguments['config_file']		
 	config = ConfigParser.ConfigParser()
@@ -107,12 +118,7 @@ if __name__ == '__main__':
 #	read(2,"a",1,hierarchy,logger)
 
 	print "********************"
-	print hierarchy['layer1-0'].cache
-	print hierarchy['layer1-1'].cache
-	print hierarchy['layer1-2'].cache
-	print hierarchy['layer2-0'].cache
-	print hierarchy['layer2-1'].cache
-	print hierarchy['layer2-2'].cache
+	collect_stats(hierarchy)
 
 	#print configs
 	#logger = logging.getLogger()
