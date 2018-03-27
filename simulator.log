@@ -1,24 +1,27 @@
 Loading config...
 Running Simulation...
-layer1-0 Miss,a,1
+layer1-2 Miss,a,1
 layer2-1 Miss,a,1, Fetch from backend
-layer1-0 Miss,b,1
-layer2-1 Miss,b,1, Fetch from backend
-layer1-0 Miss,c,1
+layer1-2 Miss,b,1
+layer1-2 Miss,c,1
 layer2-0 Miss,c,1, Fetch from backend
+layer2-1 Miss,b,1, Fetch from backend
 layer1-0 Miss,d,1
 layer2-1 Miss,d,1, Fetch from backend
-layer1-0 Hit,a,1
-layer1-0 Hit,b,1
-layer1-0 Miss,f,1
-layer2-2 Miss,f,1, Fetch from backend
-layer1-0 Miss,dd,1
-layer2-0 Miss,dd,1, Fetch from backend
-layer1-0 Miss,ee,1
-layer2-0 Miss,ee,1, Fetch from backend
-layer1-2 Miss,a,1
+layer1-0 Miss,a,1
 layer2-1 Hit,a,1
-layer1-2 Miss,b,1
+layer1-0 Miss,b,1
 layer2-1 Hit,b,1
-layer1-2 Miss,c,1
-layer2-0 Hit,c,1
+layer1-2 Miss,f,1
+layer2-2 Miss,f,1, Fetch from backend
+layer1-2 Miss,dd,1
+layer2-0 Miss,dd,1, Fetch from backend
+layer1-1 Miss,ee,1
+layer2-0 Miss,ee,1, Fetch from backend
+layer1-2 Miss,g,1
+layer1-1 Miss,x,1
+layer2-0 Miss,x,1, Fetch from backend
+layer2-0 Miss,g,1, Fetch from backend
+layer1-2 Hit,a,1
+layer1-2 Hit,b,1
+layer1-2 Hit,c,1

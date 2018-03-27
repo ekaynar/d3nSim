@@ -4,7 +4,10 @@ import re
 import numpy as np
 from uhashring import HashRing
 import loadDistribution
-
+import multiThread
+import random
+from random import randrange
+import time
 def build_d3n(config, logger):
 	#Build the cache hierarchy with the given configuration
 	hierarchy = {}
@@ -40,6 +43,7 @@ def build_cache(config, name, layer, hr, hashType, logger):
 
 def read(node,key,size,hierarchy,logger):
 	name = "layer1-"+str(node)
+#	print "arguments",node,key,size
 	r = hierarchy[name].read(key,size)
 	if r:
 		out = name+" Hit,"+key+","+str(size)
@@ -50,22 +54,31 @@ def read(node,key,size,hierarchy,logger):
 		out = name+" Miss,"+key+","+str(size)
 		logger.info(out)
 		l2_add = hierarchy[name].get_l2_address(key)
+		print node,l2_add,key,time.clock(),"\n"
+		if (int(l2_add) == int(node)) :
+			hierarchy[name].set_intrarack_bw(1)
+		else:
+			hierarchy[name].set_crossrack_bw(1)
+		
 		name = "layer2-"+str(l2_add)
 		r = hierarchy[name].read(key,size)
 		if r:
 			out = name+" Hit,"+key+","+str(size)
 			logger.info(out)
 		else:
+			hierarchy[name].set_backend_bw(1)
 			out = name+" Miss,"+key+","+str(size)+", Fetch from backend"
 			logger.info(out)
 			
-
 def collect_stats(hierarchy):
 	for i in hierarchy:
 		print "Cache Name", i
 		#print hierarchy[i].cache
-		print "Hit Count" , hierarchy[i].hit_count
-		print "Miss Count", hierarchy[i].miss_count
+		print "Hit Count" , hierarchy[i].get_hit_count()
+		print "Miss Count", hierarchy[i].get_miss_count()
+		print "Intrarack BW", hierarchy[i].get_intrarack_bw()
+		print "Crossrack BW", hierarchy[i].get_crossrack_bw()
+		print "Backend BW", hierarchy[i].get_backend_bw()
 
 
 
@@ -102,53 +115,24 @@ if __name__ == '__main__':
 
 	logger.info('Running Simulation...')
 
-	trace=["a", "b", "c", "d", "a", "b", "f","dd","ee"]
-
+	# Instantiate a thread pool with N worker threads
+	pool = multiThread.ThreadPool(8)
+	trace=["a", "b", "c", "d", "a", "b", "f","dd","ee","g","x"]
+	def wait_delay(d):
+		read(d[0],d[1],d[2],d[3],d[4])
+	tasks=[]
 	for i in trace:
-		read(0,i,1,hierarchy,logger)
+#		read(0,i,1,hierarchy,logger)
+		rand= random.randint(0, 2)
+#		tasks.append([rand,i,1,hierarchy,logger])
+		pool.add_task(read,rand,i,1,hierarchy,logger)
+	#pool.map(wait_delay,tasks)
+	pool.wait_completion()
+
 	trace = ["a", "b", "c"]
 	for i in trace:
 		read(2,i,1,hierarchy,logger)
-#	read(0,"a",1,hierarchy,logger)
-#	read(0,"a",1,hierarchy,logger)
-#	read(0,"b",1,hierarchy,logger)
-#	read(0,"e",1,hierarchy,logger)
-#	read(1,"e",1,hierarchy,logger)
-#	read(1,"a",1,hierarchy,logger)
-#	read(2,"a",1,hierarchy,logger)
 
 	print "********************"
 	collect_stats(hierarchy)
-
-	#print configs
-	#logger = logging.getLogger()
-    	#fh = logging.FileHandler(log_filename)
-    	#sh = logging.StreamHandler()
-    	#logger.addHandler(fh)
-    	#logger.addHandler(sh)
-
-
-	#while (command != "quit"):
-    	#	operation = input("> ")
-    	#	operation = operation.split()
-
-
-
-#       cache = Cache("L1",30,"LRU","WT","a")
-#       r=cache.read("a",10)
-#       r=cache.read("a",10)
-#       r=cache.read("b",10)
-#       r=cache.read("c",10)
-#       r=cache.read("d",10)
-#       h=cache.get_hit_count()
-#       m=cache.get_miss_count()
-#       cache.print_cache()
-#       print h,m
- #      cachefifo = Cache("L1",100,"FIFO","WT","a")
-#       cachelfu = Cache("L1",100,"LFU","WT","a")
-
-#       cachefifo.insert("c",10)
-#       cachefifo.insert("d",10)
-#       cachefifo.insert("e",10)
-#       cachefifo.print_cache()
 

@@ -32,10 +32,9 @@ class Cache:
 		self.spaceLeft = size # Cache size
 		self._logger = logger
 		self.hashmap = {} # Mapping
-		self.hit_count = 0
-		self.miss_count = 0
 		self.hash_ring = hash_ring
 		self._hash_type = hash_type
+
 	
 		if (self._replace_pol == Cache.LRU):
 			self.cache = LRU(self._size)		
@@ -44,6 +43,12 @@ class Cache:
 		elif (self._replace_pol == Cache.LFU):
 			self.cache = deque()		
 		
+		# Statistics
+		self._hit_count = 0
+		self._miss_count = 0
+		self._backend_bw = 0
+		self._crossrack_bw = 0
+		self._intrarack_bw = 0
 
 	def _insert(self, key, size):
 		# No eviction
@@ -71,12 +76,12 @@ class Cache:
 		if key in self.hashmap:
 			if (self._replace_pol == Cache.LRU):
                         	self._update_use(key)
-			self.hit_count+=1
+			self._hit_count+=1
 			r = 1
 		else:
-			self.miss_count+=1
+			self._miss_count+=1
 			self._insert(key, size)
-
+			
 		return r
 
 	def _evict(self):
@@ -94,12 +99,25 @@ class Cache:
 		if (self._replace_pol == Cache.LRU):
 			self.cache[key]= self.hashmap[key]
 
-	       
+
+		
+	def set_backend_bw(self, value):
+		self._backend_bw += value
+	def set_crossrack_bw(self, value):
+		self._crossrack_bw += value
+	def set_intrarack_bw(self, value):
+		self._intrarack_bw += value
+	def get_backend_bw(self):
+		return self._backend_bw
+	def get_crossrack_bw(self):
+		return self._crossrack_bw
+	def get_intrarack_bw(self):
+		return self._intrarack_bw
+
 	def get_hit_count(self):
-		return self.hit_count
-	
+		return self._hit_count	
 	def get_miss_count(self):
-		return self.miss_count
+		return self._miss_count
 	
 	def get_available_space(self):
 		return self.spaceLeft  
