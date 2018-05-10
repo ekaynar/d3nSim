@@ -71,6 +71,8 @@ class Cache:
 	
 	
 	def read(self, key, size):
+		if self._layer == "BE":
+			return 1
 		"""Read a object from the cache."""
 		r = None
 		if key in self.hashmap:
@@ -80,7 +82,7 @@ class Cache:
 			r = 1
 		else:
 			self._miss_count+=1
-			self._insert(key, size)
+		#	self._insert(key, size)
 			
 		return r
 
@@ -124,6 +126,8 @@ class Cache:
 	
 	def get_replace_poll(self):
                 return self._replace_pol
+	def get_size(self):
+		return self._size
 
 	def print_cache(self):
 		print self.cache
