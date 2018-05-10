@@ -218,8 +218,6 @@ def SendEvent(request,hierarchy,logger,env,links):
 
 
 def CompletionEvent(request,hierarchy,logger,env,links):
-	#linkId="0-"+str(request.dest[1])
-	bw_required = request.size
 	sLinkId,dLinkId = findLinkId(request.source, request.dest)
 	
 	if sLinkId:
@@ -227,7 +225,6 @@ def CompletionEvent(request,hierarchy,logger,env,links):
 		latency = float(request.size) / links[sLinkId].capacity
         if dLinkId:
 		print "Error on Completion"
-                #yield links[dLinkId].get(bw_required)
 	
 	yield env.timeout(latency)
 
@@ -237,8 +234,6 @@ def CompletionEvent(request,hierarchy,logger,env,links):
 #		yield links[dLinkId].put(bw_required)	
 
 	display(env,request)
-#	out = "time:"+str(env.now)+" Completion:"+str(request.dest) +" ReqId:"+str(req.reqId) +" key:"+req.key+" size:"+str(req.size)
-#	print out 
 	
 def generateEvent(request,hierarchy,logger,env,links):
 #	yield env.timeout(request.arrTime)
