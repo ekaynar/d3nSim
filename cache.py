@@ -24,7 +24,7 @@ class Cache:
 	consistent = "consistent"	
 	rendezvous = "rendezvous"	
 
-	def __init__(self, layer, size, replace_pol, write_pol, hash_ring, hash_type, logger):
+	def __init__(self, layer, size, replace_pol, write_pol, hash_ring, hash_type,obj_size ,logger):
         	self._replace_pol = replace_pol  # Replacement policy
         	self._write_pol = write_pol  # Write policy
 		self._layer = layer # Layer info
@@ -34,7 +34,7 @@ class Cache:
 		self.hashmap = {} # Mapping
 		self.hash_ring = hash_ring
 		self._hash_type = hash_type
-
+		self._obj_size = obj_size
 	
 		if (self._replace_pol == Cache.LRU):
 			self.cache = LRU(self._size)		

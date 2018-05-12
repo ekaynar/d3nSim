@@ -5,15 +5,15 @@ import numpy as np
 from uhashring import HashRing
 import loadDistribution
 import multiThread
+from client import Client
 from request import Request
-import random
-from random import randrange
 import time
 import simpy
-
-eventQueue=[]
-BE_capacity=65
+from threading import Thread
+from inputParser import inputParser
 cephLayer=3
+
+
 
 
 def build_network(config,logger,env):
@@ -22,20 +22,25 @@ def build_network(config,logger,env):
 	# 40 Gbps = 5000 MB/s
 	TOR_SIZE=1
 	links={}
+	L1_In = float(config.get('Network', 'L1_In').split("G")[0])/8*1000*1000*1000
+	L2_In = float(config.get('Network', 'L2_In').split("G")[0])/8*1000*1000*1000
+	L1_Out = float(config.get('Network', 'L1_Out').split("G")[0])/8*1000*1000*1000
+	L2_Out = float(config.get('Network', 'L2_Out').split("G")[0])/8*1000*1000*1000
 	numNodes = int(config.get('Simulation', 'nodeNum'))
         if config.get('Simulation', 'L1') == "true" :
                 for i in range(numNodes):
 			linkId = "L1in1r"+str(i)
-                        links[linkId]=simpy.Container(env, TOR_SIZE, init=TOR_SIZE)
+                        links[linkId]=simpy.Container(env, L1_In, init=L1_In)
 			linkId = "L1out0r"+str(i)
-                        links[linkId]=simpy.Container(env, TOR_SIZE, init=TOR_SIZE)
+                        links[linkId]=simpy.Container(env, L1_Out, init=L1_Out)
 	
 	if config.get('Simulation', 'L2') == "true" :		
 		for i in range(numNodes):
 			linkId = "L2in1r"+str(i)
-                        links[linkId]=simpy.Container(env, TOR_SIZE, init=TOR_SIZE)
+                        links[linkId]=simpy.Container(env, L2_In, init=L2_In)
 			linkId = "L2out0r"+str(i)
-                        links[linkId]=simpy.Container(env, TOR_SIZE, init=TOR_SIZE)
+                        links[linkId]=simpy.Container(env, L2_Out, init=L2_Out)
+		
 
 	return links
 
@@ -52,31 +57,35 @@ def build_d3n(config, logger):
 		hr = loadDistribution.consistentHashing(numNodes)	
 	caches_l1,caches_l2, backend= {},{},{}
 	if config.get('Simulation', 'L1') == "true" :
+		cephLayer=2
 		for i in range(numNodes):
 			name = "1-"+str(i)
 			caches_l1[i]=build_cache(config, name, 'L1', hr, hashType, logger) 
 			hierarchy[name]=caches_l1[i]
 	if config.get('Simulation', 'L2') == "true" :
+		cephLayer=3
 		for i in range(numNodes):
 			name = "2-"+str(i)
 			caches_l2[i]=build_cache(config, name, 'L1', hr, hashType, logger)
 			hierarchy[name]=caches_l2[i]
 
 	backend=build_cache(config, name, 'BE', hr, hashType, logger)
-	name = "3-0"
+	name = str(cephLayer)+"-0"
 	hierarchy[name]=backend	
 
 
 	return hierarchy
 def build_cache(config, name, layer, hr, hashType, logger):
+	obj_size=get_obj_size(config)
+	match=""
 	match = re.match(r"([0-9]+)([a-z]+)", config.get('Simulation', 'L1_size'), re.I)
 	if match:
 		items = match.groups()
 		if items[1] =="G" or items[1] =="g":
-			size=(int(items[0])*1024/4)
+			size=(int(items[0])*1024*1024*1024/obj_size)
 		elif  items[1] =="M" or items[1] =="m":
-			size=(items[0]*1024*1024)
-	return cache.Cache(layer,size , config.get('Simulation', 'L1_rep') , "WT", hr, hashType, logger)
+			size=(int(items[0])*1024*1024/obj_size)
+	return cache.Cache(layer,size , config.get('Simulation', 'L1_rep') , "WT", hr, hashType, obj_size,logger)
 
 def display(*arg):
 	env=arg[0]
@@ -87,7 +96,7 @@ def display(*arg):
 		info=""
 	out = ""
 	if str(request.rtype) == "read_req":
-		out = "time:"+str(env.now)+" Requested:"+str(request.dest)+" "+info +" ReqId:"+str(request.reqId)+" key:"+str(request.key)+" size:"+str(request.size)+" from:"+str(request.source)+" to:"+str(request.dest)+" path:"+str(request.path)
+		out = "time:"+str(env.now)+" Client:"+str(request.client._id)+" Requested:"+str(request.dest)+" "+info +" ReqId:"+str(request.reqId)+" key:"+str(request.key)+" size:"+str(request.size)+" from:"+str(request.source)+" to:"+str(request.dest)+" path:"+str(request.path)
 		print out
 	if str(request.rtype) == "send_data":
 		out = "time:"+str(env.now)+" Received:"+str(request.dest)+" "+info+" ReqId:"+str(request.reqId)+" key:"+str(request.key)+" size:"+str(request.size)+" from:"+str(request.source)+" to:"+str(request.dest)+" path:"+str(request.path)
@@ -110,11 +119,11 @@ def readEvent(request,hierarchy,logger,env,links):
 		dest = request.path.pop()
 		if dest[0]==0:
 			source =  [ request.dest[0], request.dest[1] ]
-                	req = Request(request.reqId,source,dest,request.key,request.size,"completion",request.path)
+                	req = Request(request.reqId,source,dest,request.key,request.size,"completion",request.path,request.client)
                 	#env.process(generateEvent(req,hierarchy,logger,env,links))
                 	generateEvent(req,hierarchy,logger,env,links)
 		else:
-			req = Request(request.reqId,source,dest,request.key,request.size,"send_data",request.path)
+			req = Request(request.reqId,source,dest,request.key,request.size,"send_data",request.path,request.client)
 			#env.process(generateEvent(req,hierarchy,logger,env,links))
                 	generateEvent(req,hierarchy,logger,env,links)
 			
@@ -133,7 +142,7 @@ def readEvent(request,hierarchy,logger,env,links):
 			source = request.dest
 			path = request.path[:]
 			path.append( [ request.dest[0],request.dest[1] ] )
-			req = Request(request.reqId,source,dest,request.key,request.size,"read_req",path)
+			req = Request(request.reqId,source,dest,request.key,request.size,"read_req",path,request.client)
                         #env.process(generateEvent(req,hierarchy,logger,env,links))		
                 	generateEvent(req,hierarchy,logger,env,links)
 	
@@ -174,31 +183,31 @@ def SendEvent(request,hierarchy,logger,env,links):
 
 		# Get the required amount of Bandwidth
 		if sLinkId: 
-			yield links[sLinkId].get(1)
+			yield links[sLinkId].get(links[sLinkId].capacity)
 			latency = float(request.size) / links[sLinkId].capacity
-		else:
-			latency = float(request.size) / BE_capacity
 		if dLinkId:
-			yield links[dLinkId].get(1)
+			yield links[dLinkId].get(links[dLinkId].capacity)
+			latency = float(request.size) / links[dLinkId].capacity
 	
-		#latency = request.size / 
 		# The "actual" refueling process takes some time
 		yield env.timeout(latency)
 	
 	
 		# Put the required amount of Bandwidth
 		if sLinkId:
-			yield links[sLinkId].put(1)
+			yield links[sLinkId].put(links[sLinkId].capacity)
 		if dLinkId:
-			yield links[dLinkId].put(1)
+			yield links[dLinkId].put(links[dLinkId].capacity)
 		
 	cacheId = str(request.dest[0])+"-"+str(request.dest[1])
 	if (request.source[0] == cephLayer):
 		display(env,request,"From Ceph")
-		hierarchy[cacheId]._insert(request.key,request.size)
+		size = float(request.size)/float(obj_size)
+		hierarchy[cacheId]._insert(request.key,size)
 	elif (request.source[1] != request.dest[1]):
 		display(env,request,"Remote L2")
-		hierarchy[cacheId]._insert(request.key,request.size)
+		size = float(request.size)/float(obj_size)
+		hierarchy[cacheId]._insert(request.key,size)
 	else:
 		display(env,request,"Local L2")
 	
@@ -207,12 +216,12 @@ def SendEvent(request,hierarchy,logger,env,links):
 	dest = request.path.pop()
 	if dest[0]==0:
 		source =  [ request.dest[0], request.dest[1] ] 
-       		req = Request(request.reqId,source,dest,request.key,request.size,"completion",request.path)
+       		req = Request(request.reqId,source,dest,request.key,request.size,"completion",request.path,request.client)
                 #env.process(generateEvent(req,hierarchy,logger,env,links))
                 generateEvent(req,hierarchy,logger,env,links)
 	else:
 		source = [ request.dest[0], request.dest[1] ]
-		req = Request(request.reqId,source,dest,request.key,request.size,"send_data",request.path)
+		req = Request(request.reqId,source,dest,request.key,request.size,"send_data",request.path,request.client)
                 #env.process(generateEvent(req,hierarchy,logger,env,links))
                 generateEvent(req,hierarchy,logger,env,links)
 
@@ -221,7 +230,7 @@ def CompletionEvent(request,hierarchy,logger,env,links):
 	sLinkId,dLinkId = findLinkId(request.source, request.dest)
 	
 	if sLinkId:
-                yield links[sLinkId].get(1)
+                yield links[sLinkId].get(links[sLinkId].capacity)
 		latency = float(request.size) / links[sLinkId].capacity
         if dLinkId:
 		print "Error on Completion"
@@ -229,18 +238,17 @@ def CompletionEvent(request,hierarchy,logger,env,links):
 	yield env.timeout(latency)
 
 	if sLinkId:
-                yield links[sLinkId].put(1)
+                yield links[sLinkId].put(links[sLinkId].capacity)
 #	if dLinkId:
 #		yield links[dLinkId].put(bw_required)	
 
 	display(env,request)
-	
+	issueRequests(request.client,hierarchy,logger,env,links,1)
 def generateEvent(request,hierarchy,logger,env,links):
 #	yield env.timeout(request.arrTime)
 	cacheId = str(request.dest[0])+"-"+str(request.dest[1])
 	request.set_time(env.now)
 	if request.rtype == "read_req":
-		#env.process(readEvent(request,hierarchy,logger,env,links))
 		env.process(readEvent(request,hierarchy,logger,env,links))
 	elif request.rtype == "send_data":
 		env.process(SendEvent(request,hierarchy,logger,env,links))
@@ -261,7 +269,31 @@ def collect_stats(hierarchy,links):
 
 	for i in sorted(links.keys()):
 		print i
+def issueRequests(client,hierarchy,logger,env,links,reqNum):
+	if client._trace:
+		counter=0	
+		for i in range(int(reqNum)) :
+			obj=client._trace.pop(0)
+			path,destination,source=[],[],[]
+			counter +=1
+	                destination.append(1)
+	                destination.append(client._rackid)
+			arrTime = 0
+			source=[0,client._rackid]
+	                path = [[0,client._rackid]]
+			req = Request(counter,source,destination,obj,client._obj_size,"read_req",path,client)
+	                req.set_time(arrTime)
+			generateEvent(req,hierarchy,logger,env,links)
+	else:
+		print "Finished Client:"+str(client._id)
 
+def get_obj_size(config):
+	match = re.match(r"([0-9]+)([a-z]+)", config.get('Simulation', 'obj_size'), re.I)
+        if match:
+                items = match.groups()
+                if items[1] =="M" or items[1] =="m":
+                        obj_size=(int(items[0])*1024*1024)
+	return obj_size
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description='Simulate a cache')
@@ -295,42 +327,57 @@ if __name__ == '__main__':
 	env = simpy.Environment()
 
 	links = build_network(config,logger,env)
+	jobList = [] 
+	fin = config.get('Simulation', 'input')
+	#jobList=inputParser(fin)
 	
 	# Instantiate a thread pool with N worker threads
-	pool = multiThread.ThreadPool(8)
+        clientNum = int(config.get('Simulation', 'clientNum'))
+        nodeNum = int(config.get('Simulation', 'nodeNum'))
+        threadNum = int(config.get('Simulation', 'threadNum'))
+
+	obj_size=get_obj_size(config)
+	
+	clientList={}
+	counter=0
 	trace=["a", "b", "c", "d", "a", "b", "f","dd","ee","g","x"]
-	trace=["a","b"]
-	tasks=[]
-	counter = 0
-	for key in trace:
-		path,destination,source=[],[],[]
-		counter +=1
-		destination.append(1)
-		num= random.randint(0, 2)
-		destination.append(num)
-		arrTime = random.randint(0, 3)
-		arrTime = 0
-		num=2
-		source=[0,num]
-		path = [[0,num]]
-		size = 4	
-		#arrTime = 2
-		print key, arrTime
-		#  def __init__(self,reqId, source,dest,key,size,rtype):
-#		print arrTime,key,counter
-		req = Request(counter,source,destination,key,size,"read_req",path)
-		req.set_time(arrTime)
-		generateEvent(req,hierarchy,logger,env,links)	
-#		pool.add_task(read,i,rand,i,1,hierarchy,logger)
-#	pool.wait_completion()
-	#env.run(until=40)
+	for i in range(nodeNum):
+		for j in range(clientNum):
+			clientList[counter]=Client(counter,i,trace,obj_size,threadNum)	
+			counter+=1	
+	for i in clientList.keys():
+		print i, clientList[i]._trace
+	
+	pool = multiThread.ThreadPool(3)
+	for key in clientList.keys():
+		pool.add_task(issueRequests, clientList[key],hierarchy,logger,env,links,1)
+	pool.wait_completion()
+
+
+#	counter = 0
+#	for key in trace:
+#		path,destination,source=[],[],[]
+#		counter +=1
+#		destination.append(1)
+#		num= random.randint(0, 2)
+#		destination.append(num)
+#		arrTime = random.randint(0, 3)
+#		arrTime = 0
+#		num=2
+#		source=[0,num]
+#		path = [[0,num]]
+#		size = 4	
+#		#arrTime = 2
+#		print key, arrTime
+#		#  def __init__(self,reqId, source,dest,key,size,rtype):
+##		print arrTime,key,counter
+#		req = Request(counter,source,destination,key,size,"read_req",path)
+#		req.set_time(arrTime)
+##		generateEvent(req,hierarchy,logger,env,links)	
+##		pool.add_task(read,i,rand,i,1,hierarchy,logger)
+##	pool.wait_completion()
 	env.run()
  	print "Simulation Ends"
-	trace = ["a", "b", "c","a"]
-#	for i in trace:
-#		read(i,2,i,1,hierarchy,logger)
-	for i in eventQueue:
-		print i.e_type,i.req.key	
 	print "Collecting Statistics..."	
 #	collect_stats(hierarchy,link)
 

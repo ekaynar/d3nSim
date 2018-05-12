@@ -1,7 +1,7 @@
 class Request:
 	
 
-	def __init__(self,reqId, source,dest,key,size,rtype,path):
+	def __init__(self,reqId, source,dest,key,size,rtype,path,client):
 		self.reqId=reqId
 		self.source=source
 		self.dest = dest
@@ -11,7 +11,7 @@ class Request:
 		self.layer=0
 		self.rtype = rtype
 		self.path = path
-     
+		self.client = client     
 	def set_time(self,time):
                 self.arrTime = time
 	def set_source(self,source):
