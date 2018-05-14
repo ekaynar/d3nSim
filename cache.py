@@ -10,6 +10,7 @@ class Cache:
 	# Replacement policies
     	LRU = "LRU"
     	LFU = "LFU"
+    	LRU_S = "LRU_S"
     	FIFO = "FIFO"
     	RAND = "RAND"
 
@@ -24,7 +25,7 @@ class Cache:
 	consistent = "consistent"	
 	rendezvous = "rendezvous"	
 
-	def __init__(self, layer, size, replace_pol, write_pol, hash_ring, hash_type,obj_size ,logger):
+	def __init__(self, layer, size, replace_pol, write_pol, hash_ring, hash_type,obj_size,shadow_size,logger):
         	self._replace_pol = replace_pol  # Replacement policy
         	self._write_pol = write_pol  # Write policy
 		self._layer = layer # Layer info
@@ -35,14 +36,20 @@ class Cache:
 		self.hash_ring = hash_ring
 		self._hash_type = hash_type
 		self._obj_size = obj_size
+		self.base=0
+		self.plus=0		
+		self.minus=0
 	
 		if (self._replace_pol == Cache.LRU):
 			self.cache = LRU(self._size)		
 		elif (self._replace_pol == Cache.FIFO):
 			self.cache = deque()		
-		elif (self._replace_pol == Cache.LFU):
-			self.cache = deque()		
-		
+		elif (self._replace_pol == Cache.LRU_S):
+			self.cache = LRU(self._size)		
+			self.shadow_cache=LRU(shadow_size)	
+				
+
+
 		# Statistics
 		self._hit_count = 0
 		self._miss_count = 0
@@ -55,6 +62,8 @@ class Cache:
 		if (int(size) <= self.spaceLeft):
 			if (self._replace_pol == Cache.LRU):
 				self.cache[key]=int(size)
+			elif (self._replace_pol == Cache.LRU_S):
+                        	self.cache[key]=int(size)
 			elif (self._replace_pol == Cache.FIFO):
                         	self.cache.append(key)
 			self.hashmap[key] = int(size)
@@ -64,9 +73,11 @@ class Cache:
 				self._evict()
 			if (self._replace_pol == Cache.LRU):
                                 self.cache[key]=int(size)
+                        elif (self._replace_pol == Cache.LRU_S):
+                                self.cache[key]=int(size)
                         elif (self._replace_pol == Cache.FIFO):
                                 self.cache.append(key)
-                        self.hashmap[key] = int(size)
+			self.hashmap[key] = int(size)
                         self.spaceLeft -= int(size)	
 	
 	
@@ -78,17 +89,32 @@ class Cache:
 		if key in self.hashmap:
 			if (self._replace_pol == Cache.LRU):
                         	self._update_use(key)
+			elif (self._replace_pol == Cache.LRU_S):
+                        	self.base +=1
+				self._update_use(key)
+				for i in range(2):
+					id = self.cache.peek_last_item()[i]
+					if id == key:
+						self.minus+=1
+						break
+				
 			self._hit_count+=1
 			r = 1
 		else:
-			self._miss_count+=1
-		#	self._insert(key, size)
 			
+			self._miss_count+=1
+			if (self._replace_pol == Cache.LRU_S):
+				if (self.shadow_cache.has_key(key)):
+					self.plus+=1		
 		return r
 
 	def _evict(self):
 		if (self._replace_pol == Cache.LRU):
 			id = self.cache.peek_last_item()[0]
+			del self.cache[id]
+		elif (self._replace_pol == Cache.LRU_S):
+			id = self.cache.peek_last_item()[0]
+			self.shadow_cache[id]=1
 			del self.cache[id]
 		elif (self._replace_pol == Cache.FIFO):		
 			id = self.cache.popleft()
@@ -101,7 +127,9 @@ class Cache:
 		if (self._replace_pol == Cache.LRU):
 			self.cache[key]= self.hashmap[key]
 
-
+	def set_cache_size(self,size):
+		new_size = self.cache.get_size()+int(size)
+		self.cache.set_size(int(new_size))
 		
 	def set_backend_bw(self, value):
 		self._backend_bw += value
@@ -126,8 +154,11 @@ class Cache:
 	
 	def get_replace_poll(self):
                 return self._replace_pol
-	def get_size(self):
-		return self._size
+	def reset_shadow_cache():
+		self.plus=0
+		self.base=0
+		self.minus=0
+		self.shadow_cache.clear()
 
 	def print_cache(self):
 		print self.cache

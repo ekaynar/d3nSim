@@ -11,7 +11,7 @@ class Request:
 		self.layer=0
 		self.rtype = rtype
 		self.path = path
-		self.client = client     
+		self.client = client
 	def set_time(self,time):
                 self.arrTime = time
 	def set_source(self,source):

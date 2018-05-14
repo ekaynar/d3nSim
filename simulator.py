@@ -51,6 +51,7 @@ def build_d3n(config, logger):
 	hierarchy = {}
 	numNodes = int(config.get('Simulation', 'nodeNum'))
 	hashType =  config.get('Simulation', 'hashType')
+	shadow_size =  int(config.get('Simulation', 'shadow_size'))
 	if (hashType == "consistent"):
 		hr = loadDistribution.consistentHashing(numNodes)	
 	elif (hashType == "rendezvous"):
@@ -60,22 +61,22 @@ def build_d3n(config, logger):
 		cephLayer=2
 		for i in range(numNodes):
 			name = "1-"+str(i)
-			caches_l1[i]=build_cache(config, name, 'L1', hr, hashType, logger) 
+			caches_l1[i]=build_cache(config, name, 'L1', hr, hashType, shadow_size,logger) 
 			hierarchy[name]=caches_l1[i]
 	if config.get('Simulation', 'L2') == "true" :
 		cephLayer=3
 		for i in range(numNodes):
 			name = "2-"+str(i)
-			caches_l2[i]=build_cache(config, name, 'L1', hr, hashType, logger)
+			caches_l2[i]=build_cache(config, name, 'L1', hr, hashType,shadow_size, logger)
 			hierarchy[name]=caches_l2[i]
 
-	backend=build_cache(config, name, 'BE', hr, hashType, logger)
+	backend=build_cache(config, name, 'BE', hr, hashType, shadow_size,logger)
 	name = str(cephLayer)+"-0"
 	hierarchy[name]=backend	
 
 
 	return hierarchy
-def build_cache(config, name, layer, hr, hashType, logger):
+def build_cache(config, name, layer, hr, hashType, shadow_size,logger):
 	obj_size=get_obj_size(config)
 	match=""
 	match = re.match(r"([0-9]+)([a-z]+)", config.get('Simulation', 'L1_size'), re.I)
@@ -85,7 +86,7 @@ def build_cache(config, name, layer, hr, hashType, logger):
 			size=(int(items[0])*1024*1024*1024/obj_size)
 		elif  items[1] =="M" or items[1] =="m":
 			size=(int(items[0])*1024*1024/obj_size)
-	return cache.Cache(layer,size , config.get('Simulation', 'L1_rep') , "WT", hr, hashType, obj_size,logger)
+	return cache.Cache(layer,size , config.get('Simulation', 'L1_rep') , "WT", hr, hashType, obj_size,shadow_size,logger)
 
 def display(*arg):
 	env=arg[0]
@@ -106,6 +107,50 @@ def display(*arg):
 		print out
 
 
+def cacheinfo(hierarchy):
+	for key in hierarchy.keys():
+		print"Shadow", key,hierarchy[key].shadow_cache
+		print "Actual", key,hierarchy[key].cache
+
+def cacheinfo2(hierarchy):
+	cacheId="3-0"
+	print cacheId, hierarchy[cacheId].cache, "Shadow:",hierarchy[cacheId].shadow_cache,"---", hierarchy[cacheId].base, hierarchy[cacheId].plus, hierarchy[cacheId].minus,"---", "Size:",hierarchy[cacheId].cache.get_size() #, "Space:", hierarchy[cacheId].spaceLeft
+	for i in range(2,-1,-1):
+		print""""-------Rack #"""+str(i)+"-------"
+		for j in range(2,0,-1):
+			cacheId=str(j)+"-"+str(i) 
+			print cacheId, hierarchy[cacheId].cache, "Shadow:",hierarchy[cacheId].shadow_cache,"---", hierarchy[cacheId].base, hierarchy[cacheId].plus, hierarchy[cacheId].minus,"---", "Size:",hierarchy[cacheId].cache.get_size()
+# "Space:", hierarchy[cacheId].spaceLeft
+
+
+def set_cache_size(hierarchy,env):
+
+	layerNum=2
+	rackNum =  (len(hierarchy)-1)/layerNum
+	print "--------------------"
+	for i in range(rackNum):
+		caches=[]
+		for j in xrange(1,layerNum+1,1):
+			cacheId1=str(j)+"-"+str(i)
+		 	caches.append(cacheId1)
+		if (hierarchy[caches[0]].plus > hierarchy[caches[1]].minus):	
+			print "Add to " ,caches[0]
+			hierarchy[caches[0]].set_cache_size(1)	
+			hierarchy[caches[1]].set_cache_size(-1)
+			#print hierarchy[caches[0]].cache.get_size()	
+			#print hierarchy[caches[1]].cache.get_size()	
+		elif (hierarchy[caches[1]].plus > hierarchy[caches[0]].minus):	
+			print "Add to " ,caches[1]
+			hierarchy[caches[0]].set_cache_size(-1)	
+			hierarchy[caches[1]].set_cache_size(1)	
+			#print hierarchy[caches[0]].cache.get_size()	
+			#print hierarchy[caches[1]].cache.get_size()	
+		else:
+			print "no Changes"	
+
+
+
+
 def readEvent(request,hierarchy,logger,env,links):
 	cacheId = str(request.dest[0])+"-"+str(request.dest[1])
 	r = hierarchy[cacheId].read(request.key,request.size)
@@ -114,23 +159,19 @@ def readEvent(request,hierarchy,logger,env,links):
 	# If it is a Hit
 	if r:
 		display(env,request,"Hit")
-		# writelogs(env,logger,request,"Hit "+str(cacheId))
 		source = [ request.dest[0],request.dest[1] ]
 		dest = request.path.pop()
 		if dest[0]==0:
 			source =  [ request.dest[0], request.dest[1] ]
                 	req = Request(request.reqId,source,dest,request.key,request.size,"completion",request.path,request.client)
-                	#env.process(generateEvent(req,hierarchy,logger,env,links))
                 	generateEvent(req,hierarchy,logger,env,links)
 		else:
 			req = Request(request.reqId,source,dest,request.key,request.size,"send_data",request.path,request.client)
-			#env.process(generateEvent(req,hierarchy,logger,env,links))
                 	generateEvent(req,hierarchy,logger,env,links)
 			
 	else:
 		# Miss on Layer
 		display(env,request,"Miss")
-		#writelogs(env,logger,request,"Miss "+str(cacheId))
 		if 1:
 			path,source,dest=[],[],[]
 			dest.append(int(request.dest[0])+1)
@@ -143,9 +184,7 @@ def readEvent(request,hierarchy,logger,env,links):
 			path = request.path[:]
 			path.append( [ request.dest[0],request.dest[1] ] )
 			req = Request(request.reqId,source,dest,request.key,request.size,"read_req",path,request.client)
-                        #env.process(generateEvent(req,hierarchy,logger,env,links))		
                 	generateEvent(req,hierarchy,logger,env,links)
-	
 
 
 def writelogs(env,logger,req,option):
@@ -242,7 +281,9 @@ def CompletionEvent(request,hierarchy,logger,env,links):
 #	if dLinkId:
 #		yield links[dLinkId].put(bw_required)	
 
+
 	display(env,request)
+#	cacheinfo(hierarchy)
 	issueRequests(request.client,hierarchy,logger,env,links,1)
 def generateEvent(request,hierarchy,logger,env,links):
 #	yield env.timeout(request.arrTime)
@@ -340,7 +381,8 @@ if __name__ == '__main__':
 	
 	clientList={}
 	counter=0
-	trace=["a", "b", "c", "d", "a", "b", "f","dd","ee","g","x"]
+	#trace=["a", "b", "c", "d", "a", "b", "f","dd","ee","g","x"]
+	trace=["a","b","d","a"]
 	for i in range(nodeNum):
 		for j in range(clientNum):
 			clientList[counter]=Client(counter,i,trace,obj_size,threadNum)	
@@ -354,32 +396,11 @@ if __name__ == '__main__':
 	pool.wait_completion()
 
 
-#	counter = 0
-#	for key in trace:
-#		path,destination,source=[],[],[]
-#		counter +=1
-#		destination.append(1)
-#		num= random.randint(0, 2)
-#		destination.append(num)
-#		arrTime = random.randint(0, 3)
-#		arrTime = 0
-#		num=2
-#		source=[0,num]
-#		path = [[0,num]]
-#		size = 4	
-#		#arrTime = 2
-#		print key, arrTime
-#		#  def __init__(self,reqId, source,dest,key,size,rtype):
-##		print arrTime,key,counter
-#		req = Request(counter,source,destination,key,size,"read_req",path)
-#		req.set_time(arrTime)
-##		generateEvent(req,hierarchy,logger,env,links)	
-##		pool.add_task(read,i,rand,i,1,hierarchy,logger)
-##	pool.wait_completion()
 	env.run()
  	print "Simulation Ends"
 	print "Collecting Statistics..."	
-#	collect_stats(hierarchy,link)
 
-	for i in hierarchy:
-		print i, hierarchy[i].cache, hierarchy[i]._size, hierarchy[i].spaceLeft
+	cacheinfo2(hierarchy)
+
+	set_cache_size(hierarchy,env)
+	cacheinfo2(hierarchy)
