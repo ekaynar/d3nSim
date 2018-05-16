@@ -1,6 +1,6 @@
+import datetime
 from cache import Cache
 import ConfigParser, cache, argparse, logging, pprint
-import re
 import numpy as np
 from uhashring import HashRing
 import loadDistribution
@@ -9,12 +9,16 @@ from client import Client
 from request import Request
 import time
 import simpy
+import utils
 from threading import Thread
 from inputParser import inputParser
 cephLayer=3
+reqList,jobList=[],[]
 
-
-
+L1_lat_count=0
+L2_lat_count=0
+L1_miss_lat=0
+L2_miss_lat=0
 
 def build_network(config,logger,env):
 	# 1 Gbps = 125 MB/s
@@ -51,7 +55,6 @@ def build_d3n(config, logger):
 	hierarchy = {}
 	numNodes = int(config.get('Simulation', 'nodeNum'))
 	hashType =  config.get('Simulation', 'hashType')
-	shadow_size =  int(config.get('Simulation', 'shadow_size'))
 	if (hashType == "consistent"):
 		hr = loadDistribution.consistentHashing(numNodes)	
 	elif (hashType == "rendezvous"):
@@ -61,92 +64,34 @@ def build_d3n(config, logger):
 		cephLayer=2
 		for i in range(numNodes):
 			name = "1-"+str(i)
-			caches_l1[i]=build_cache(config, name, 'L1', hr, hashType, shadow_size,logger) 
+			caches_l1[i]=build_cache(config, name, 'L1', hr, hashType,logger) 
 			hierarchy[name]=caches_l1[i]
 	if config.get('Simulation', 'L2') == "true" :
 		cephLayer=3
 		for i in range(numNodes):
 			name = "2-"+str(i)
-			caches_l2[i]=build_cache(config, name, 'L1', hr, hashType,shadow_size, logger)
+			caches_l2[i]=build_cache(config, name, 'L2', hr, hashType, logger)
 			hierarchy[name]=caches_l2[i]
 
-	backend=build_cache(config, name, 'BE', hr, hashType, shadow_size,logger)
+	backend=build_cache(config, name, 'BE', hr, hashType, logger)
 	name = str(cephLayer)+"-0"
 	hierarchy[name]=backend	
 
 
 	return hierarchy
-def build_cache(config, name, layer, hr, hashType, shadow_size,logger):
-	obj_size=get_obj_size(config)
-	match=""
-	match = re.match(r"([0-9]+)([a-z]+)", config.get('Simulation', 'L1_size'), re.I)
-	if match:
-		items = match.groups()
-		if items[1] =="G" or items[1] =="g":
-			size=(int(items[0])*1024*1024*1024/obj_size)
-		elif  items[1] =="M" or items[1] =="m":
-			size=(int(items[0])*1024*1024/obj_size)
-	return cache.Cache(layer,size , config.get('Simulation', 'L1_rep') , "WT", hr, hashType, obj_size,shadow_size,logger)
-
-def display(*arg):
-	env=arg[0]
-	request=arg[1]
-	if len(arg)>2:
-		info=arg[2]
-	else:
-		info=""
-	out = ""
-	if str(request.rtype) == "read_req":
-		out = "time:"+str(env.now)+" Client:"+str(request.client._id)+" Requested:"+str(request.dest)+" "+info +" ReqId:"+str(request.reqId)+" key:"+str(request.key)+" size:"+str(request.size)+" from:"+str(request.source)+" to:"+str(request.dest)+" path:"+str(request.path)
-		print out
-	if str(request.rtype) == "send_data":
-		out = "time:"+str(env.now)+" Received:"+str(request.dest)+" "+info+" ReqId:"+str(request.reqId)+" key:"+str(request.key)+" size:"+str(request.size)+" from:"+str(request.source)+" to:"+str(request.dest)+" path:"+str(request.path)
-		print out
-	if str(request.rtype) == "completion":
-		out = "time:"+str(env.now)+" Completion:"+str(request.dest)+" ReqId:"+str(request.reqId)+" key:"+str(request.key)+" size:"+str(request.size)
-		print out
-
-
-def cacheinfo(hierarchy):
-	for key in hierarchy.keys():
-		print"Shadow", key,hierarchy[key].shadow_cache
-		print "Actual", key,hierarchy[key].cache
-
-def cacheinfo2(hierarchy):
-	cacheId="3-0"
-	print cacheId, hierarchy[cacheId].cache, "Shadow:",hierarchy[cacheId].shadow_cache,"---", hierarchy[cacheId].base, hierarchy[cacheId].plus, hierarchy[cacheId].minus,"---", "Size:",hierarchy[cacheId].cache.get_size() #, "Space:", hierarchy[cacheId].spaceLeft
-	for i in range(2,-1,-1):
-		print""""-------Rack #"""+str(i)+"-------"
-		for j in range(2,0,-1):
-			cacheId=str(j)+"-"+str(i) 
-			print cacheId, hierarchy[cacheId].cache, "Shadow:",hierarchy[cacheId].shadow_cache,"---", hierarchy[cacheId].base, hierarchy[cacheId].plus, hierarchy[cacheId].minus,"---", "Size:",hierarchy[cacheId].cache.get_size()
-# "Space:", hierarchy[cacheId].spaceLeft
-
-
-def set_cache_size(hierarchy,env):
-
-	layerNum=2
-	rackNum =  (len(hierarchy)-1)/layerNum
-	print "--------------------"
-	for i in range(rackNum):
-		caches=[]
-		for j in xrange(1,layerNum+1,1):
-			cacheId1=str(j)+"-"+str(i)
-		 	caches.append(cacheId1)
-		if (hierarchy[caches[0]].plus > hierarchy[caches[1]].minus):	
-			print "Add to " ,caches[0]
-			hierarchy[caches[0]].set_cache_size(1)	
-			hierarchy[caches[1]].set_cache_size(-1)
-			#print hierarchy[caches[0]].cache.get_size()	
-			#print hierarchy[caches[1]].cache.get_size()	
-		elif (hierarchy[caches[1]].plus > hierarchy[caches[0]].minus):	
-			print "Add to " ,caches[1]
-			hierarchy[caches[0]].set_cache_size(-1)	
-			hierarchy[caches[1]].set_cache_size(1)	
-			#print hierarchy[caches[0]].cache.get_size()	
-			#print hierarchy[caches[1]].cache.get_size()	
-		else:
-			print "no Changes"	
+def build_cache(config, name, layer, hr, hashType,logger):
+	obj_size=utils.get_obj_size(config)
+	if layer == "L1":
+        	name = 'L1_rep'
+		size = utils.get_cache_size(config,obj_size,'L1_size')
+	elif layer =="L2":
+		name = 'L2_rep'
+		size = utils.get_cache_size(config,obj_size,'L2_size')
+	elif layer =="BE":
+		name = 'L1_rep'	
+		size=1
+	shadow_size =int(utils.get_cache_size(config,obj_size,'shadow_size'))
+	return cache.Cache(layer,size , config.get('Simulation', name) , "WT", hr, hashType, obj_size,shadow_size,logger)
 
 
 
@@ -158,20 +103,25 @@ def readEvent(request,hierarchy,logger,env,links):
 	
 	# If it is a Hit
 	if r:
-		display(env,request,"Hit")
+		request.set_fetch(cacheId)
+		utils.display(env,logger,request,"Hit")
 		source = [ request.dest[0],request.dest[1] ]
 		dest = request.path.pop()
 		if dest[0]==0:
 			source =  [ request.dest[0], request.dest[1] ]
-                	req = Request(request.reqId,source,dest,request.key,request.size,"completion",request.path,request.client)
+                	req = Request(request.reqId,source,dest,request.key,request.size,"completion",request.path,request.client,request.get_fetch())
+			req.set_startTime(request.startTime)
+			req.set_endTime(request.endTime)
                 	generateEvent(req,hierarchy,logger,env,links)
 		else:
-			req = Request(request.reqId,source,dest,request.key,request.size,"send_data",request.path,request.client)
+			req = Request(request.reqId,source,dest,request.key,request.size,"send_data",request.path,request.client,request.get_fetch())
+			req.set_startTime(request.startTime)
+			req.set_endTime(request.endTime)
                 	generateEvent(req,hierarchy,logger,env,links)
 			
 	else:
 		# Miss on Layer
-		display(env,request,"Miss")
+		utils.display(env,logger,request,"Miss")
 		if 1:
 			path,source,dest=[],[],[]
 			dest.append(int(request.dest[0])+1)
@@ -183,8 +133,10 @@ def readEvent(request,hierarchy,logger,env,links):
 			source = request.dest
 			path = request.path[:]
 			path.append( [ request.dest[0],request.dest[1] ] )
-			req = Request(request.reqId,source,dest,request.key,request.size,"read_req",path,request.client)
-                	generateEvent(req,hierarchy,logger,env,links)
+			req = Request(request.reqId,source,dest,request.key,request.size,"read_req",path,request.client,request.get_fetch())
+			req.set_startTime(request.startTime)
+			req.set_endTime(request.endTime)
+			generateEvent(req,hierarchy,logger,env,links)
 
 
 def writelogs(env,logger,req,option):
@@ -213,9 +165,8 @@ def findLinkId(source,dest):
 
 def SendEvent(request,hierarchy,logger,env,links):
 
-
+	#cacheinfo2(hierarchy)	
 	sLinkId,dLinkId = findLinkId(request.source, request.dest)
-
 	if (request.source[0]==2 and request.dest[0]==1 and request.source[1]==request.dest[1]):
 		yield env.timeout(0)	
 	else:
@@ -240,31 +191,31 @@ def SendEvent(request,hierarchy,logger,env,links):
 		
 	cacheId = str(request.dest[0])+"-"+str(request.dest[1])
 	if (request.source[0] == cephLayer):
-		display(env,request,"From Ceph")
+		utils.display(env,logger,request,"From Ceph")
 		size = float(request.size)/float(obj_size)
 		hierarchy[cacheId]._insert(request.key,size)
 	elif (request.source[1] != request.dest[1]):
-		display(env,request,"Remote L2")
+		utils.display(env,logger,request,"Remote L2")
 		size = float(request.size)/float(obj_size)
 		hierarchy[cacheId]._insert(request.key,size)
 	else:
-		display(env,request,"Local L2")
-	
-	#print "time:"+str(env.now),"Data is received:"+str(request.dest), "ReqId:"+str(request.reqId),"key:"+request.key,"size:"+ "from:",request.source,"to:" ,request.dest, "path", request.path
+		utils.display(env,logger,request,"Local L2")
 	
 	dest = request.path.pop()
 	if dest[0]==0:
 		source =  [ request.dest[0], request.dest[1] ] 
-       		req = Request(request.reqId,source,dest,request.key,request.size,"completion",request.path,request.client)
-                #env.process(generateEvent(req,hierarchy,logger,env,links))
-                generateEvent(req,hierarchy,logger,env,links)
+       		req = Request(request.reqId,source,dest,request.key,request.size,"completion",request.path,request.client,request.get_fetch())
+		req.set_startTime(request.startTime)
+		req.set_endTime(request.endTime)
+		generateEvent(req,hierarchy,logger,env,links)
 	else:
 		source = [ request.dest[0], request.dest[1] ]
-		req = Request(request.reqId,source,dest,request.key,request.size,"send_data",request.path,request.client)
-                #env.process(generateEvent(req,hierarchy,logger,env,links))
+		req = Request(request.reqId,source,dest,request.key,request.size,"send_data",request.path,request.client,request.get_fetch())
+		req.set_startTime(request.startTime)
+		req.set_endTime(request.endTime)
                 generateEvent(req,hierarchy,logger,env,links)
 
-
+	
 def CompletionEvent(request,hierarchy,logger,env,links):
 	sLinkId,dLinkId = findLinkId(request.source, request.dest)
 	
@@ -281,14 +232,28 @@ def CompletionEvent(request,hierarchy,logger,env,links):
 #	if dLinkId:
 #		yield links[dLinkId].put(bw_required)	
 
+	request.set_endTime(env.now)
+	request.set_compTime( request.endTime - request.startTime)
 
-	display(env,request)
-#	cacheinfo(hierarchy)
+	global  L1_miss_lat
+	global  L2_miss_lat
+	global  L1_lat_count
+	global  L2_lat_count
+	print request.fetch
+	if(int( request.fetch.split("-")[0]) == 2) or (int( request.fetch.split("-")[0]) == 3 ):
+		L1_miss_lat+=float(request.get_compTime())
+		L1_lat_count+=1
+	if (int( request.fetch.split("-")[0]) == 3 ):
+		L2_miss_lat+=float(request.get_compTime())
+		L2_lat_count+=1
+
+	utils.display(env,logger,request)
 	issueRequests(request.client,hierarchy,logger,env,links,1)
 def generateEvent(request,hierarchy,logger,env,links):
 #	yield env.timeout(request.arrTime)
 	cacheId = str(request.dest[0])+"-"+str(request.dest[1])
 	request.set_time(env.now)
+	request.set_startTime(env.now)
 	if request.rtype == "read_req":
 		env.process(readEvent(request,hierarchy,logger,env,links))
 	elif request.rtype == "send_data":
@@ -297,44 +262,72 @@ def generateEvent(request,hierarchy,logger,env,links):
 		env.process(CompletionEvent(request,hierarchy,logger,env,links))
 
 		
-def collect_stats(hierarchy,links):
-	for i in hierarchy:
-		print "Cache Name", i
-		#print hierarchy[i].cache
-		print "Hit Count" , hierarchy[i].get_hit_count()
-		print "Miss Count", hierarchy[i].get_miss_count()
-		print "Intrarack BW", hierarchy[i].get_intrarack_bw()
-		print "Crossrack BW", hierarchy[i].get_crossrack_bw()
-		print "Backend BW", hierarchy[i].get_backend_bw()
-
-
-	for i in sorted(links.keys()):
-		print i
 def issueRequests(client,hierarchy,logger,env,links,reqNum):
-	if client._trace:
-		counter=0	
+	#if client._trace:
+	if jobList:
+	#	reqid=0	
 		for i in range(int(reqNum)) :
-			obj=client._trace.pop(0)
+			#obj=client._trace.pop(0)
+			obj=jobList.pop(0)
+			reqid=int(reqList.pop(0))
+	#		print obj
 			path,destination,source=[],[],[]
-			counter +=1
+	#		reqid +=1
 	                destination.append(1)
 	                destination.append(client._rackid)
 			arrTime = 0
 			source=[0,client._rackid]
 	                path = [[0,client._rackid]]
-			req = Request(counter,source,destination,obj,client._obj_size,"read_req",path,client)
+			req = Request(reqid,source,destination,obj,client._obj_size,"read_req",path,client,"")
 	                req.set_time(arrTime)
 			generateEvent(req,hierarchy,logger,env,links)
 	else:
 		print "Finished Client:"+str(client._id)
 
-def get_obj_size(config):
-	match = re.match(r"([0-9]+)([a-z]+)", config.get('Simulation', 'obj_size'), re.I)
-        if match:
-                items = match.groups()
-                if items[1] =="M" or items[1] =="m":
-                        obj_size=(int(items[0])*1024*1024)
-	return obj_size
+def cost(cache1,cache2,l1_pos,l2_pos,L1_lat,L2_lat,size):
+	mc_l1=mc_l2=0
+	for i in range(l1_pos+1,size):
+		mc_l1+=cache1.hist[i]
+	
+	for i in range(l2_pos,size):
+		mc_l2+=cache2.hist[i]
+
+	res = (mc_l1*L1_lat) + (mc_l2*L2_lat)
+#	print l1_pos,l2_pos
+#	print mc_l1,mc_l2
+#	print res
+	return res
+
+
+def set_cache_size(hierarchy,env):
+	layers=2
+	racknum=3
+	cache_1=cache_2=""
+	for i in range(racknum):
+		min_cost=None
+		l1_pos=l2_pos=0
+                print""""-------Rack #"""+str(i)+"-------"
+                cache_1="1-"+str(i)
+                cache_2="2-"+str(i)
+		size = len(hierarchy[cache_1].hist)-1
+		for i in range(size):
+			print hierarchy[cache_1].hist, hierarchy[cache_2].hist
+			res = cost(hierarchy[cache_1],hierarchy[cache_2],i,size-i,1,1,size)
+			if min_cost != None:
+				#print "more",min_cost
+				if ( res < min_cost):
+					min_cost = res
+					l1_pos = i
+					l2_pos = size-i
+			else:
+				#print "first",min_cost
+				min_cost=res
+				l1_pos = i
+				l2_pos = size-i
+       		print min_cost,l1_pos,l2_pos
+
+def reset_counters():
+	return 0
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description='Simulate a cache')
@@ -368,21 +361,25 @@ if __name__ == '__main__':
 	env = simpy.Environment()
 
 	links = build_network(config,logger,env)
-	jobList = [] 
+#	jobList = [] 
 	fin = config.get('Simulation', 'input')
-	#jobList=inputParser(fin)
+#	jobList=inputParser(fin)
 	
 	# Instantiate a thread pool with N worker threads
         clientNum = int(config.get('Simulation', 'clientNum'))
         nodeNum = int(config.get('Simulation', 'nodeNum'))
         threadNum = int(config.get('Simulation', 'threadNum'))
 
-	obj_size=get_obj_size(config)
+	obj_size=utils.get_obj_size(config)
 	
 	clientList={}
 	counter=0
 	#trace=["a", "b", "c", "d", "a", "b", "f","dd","ee","g","x"]
-	trace=["a","b","d","a"]
+	trace=["a","b","d","a","f","h","b","ff","a","x","y","b","a","z","a","b","d"]
+	jobList=trace[:]
+	for i in xrange(len(jobList)):
+		reqList.append(i+1)
+	#print jobList,reqList
 	for i in range(nodeNum):
 		for j in range(clientNum):
 			clientList[counter]=Client(counter,i,trace,obj_size,threadNum)	
@@ -397,10 +394,18 @@ if __name__ == '__main__':
 
 
 	env.run()
- 	print "Simulation Ends"
+ 	logger.info("Simulation Ends")
+ 	logger.info("Collecting Statistics...")
+	print "Simulation Ends"
 	print "Collecting Statistics..."	
+	
+	utils.cacheinfo2(hierarchy)
 
-	cacheinfo2(hierarchy)
-
-	set_cache_size(hierarchy,env)
-	cacheinfo2(hierarchy)
+	res_file=int(config.get('Simulation', 'res_file'))
+	fd = open(res_file,"a")
+	fd.write("Date:"+str(datetime.datetime.now()))
+	
+	
+	fd.close()	
+	print L1_miss_lat, L1_lat_count, L2_miss_lat,L2_lat_count
+#	set_cache_size(hierarchy,env)

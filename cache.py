@@ -25,7 +25,7 @@ class Cache:
 	consistent = "consistent"	
 	rendezvous = "rendezvous"	
 
-	def __init__(self, layer, size, replace_pol, write_pol, hash_ring, hash_type,obj_size,shadow_size,logger):
+	def __init__(self, layer, size, replace_pol, write_pol, hash_ring, hash_type,obj_size,full_size,logger):
         	self._replace_pol = replace_pol  # Replacement policy
         	self._write_pol = write_pol  # Write policy
 		self._layer = layer # Layer info
@@ -36,9 +36,6 @@ class Cache:
 		self.hash_ring = hash_ring
 		self._hash_type = hash_type
 		self._obj_size = obj_size
-		self.base=0
-		self.plus=0		
-		self.minus=0
 	
 		if (self._replace_pol == Cache.LRU):
 			self.cache = LRU(self._size)		
@@ -46,10 +43,10 @@ class Cache:
 			self.cache = deque()		
 		elif (self._replace_pol == Cache.LRU_S):
 			self.cache = LRU(self._size)		
-			self.shadow_cache=LRU(shadow_size)	
-				
-
-
+			self.shadow=LRU(full_size)
+			self.hist=[]	
+			for i in range(full_size):			
+				self.hist.append(0)
 		# Statistics
 		self._hit_count = 0
 		self._miss_count = 0
@@ -59,6 +56,10 @@ class Cache:
 
 	def _insert(self, key, size):
 		# No eviction
+
+		if  (self._replace_pol == Cache.LRU_S):
+			self.shadow[key]=1
+
 		if (int(size) <= self.spaceLeft):
 			if (self._replace_pol == Cache.LRU):
 				self.cache[key]=int(size)
@@ -86,26 +87,26 @@ class Cache:
 			return 1
 		"""Read a object from the cache."""
 		r = None
+	
+		if (self._replace_pol == Cache.LRU_S):
+			if self.shadow.has_key(key):
+				count=0
+				for i in self.shadow.keys():
+					if i == key:
+						self.hist[count]+=1
+					count+=1
+				self.shadow[key]=1	
+
 		if key in self.hashmap:
 			if (self._replace_pol == Cache.LRU):
                         	self._update_use(key)
 			elif (self._replace_pol == Cache.LRU_S):
-                        	self.base +=1
-				self._update_use(key)
-				for i in range(2):
-					id = self.cache.peek_last_item()[i]
-					if id == key:
-						self.minus+=1
-						break
-				
+				self._update_use(key)	
 			self._hit_count+=1
 			r = 1
 		else:
 			
 			self._miss_count+=1
-			if (self._replace_pol == Cache.LRU_S):
-				if (self.shadow_cache.has_key(key)):
-					self.plus+=1		
 		return r
 
 	def _evict(self):
@@ -114,7 +115,6 @@ class Cache:
 			del self.cache[id]
 		elif (self._replace_pol == Cache.LRU_S):
 			id = self.cache.peek_last_item()[0]
-			self.shadow_cache[id]=1
 			del self.cache[id]
 		elif (self._replace_pol == Cache.FIFO):		
 			id = self.cache.popleft()
@@ -126,6 +126,8 @@ class Cache:
 		"""Update the use of a cache."""
 		if (self._replace_pol == Cache.LRU):
 			self.cache[key]= self.hashmap[key]
+		if (self._replace_pol == Cache.LRU_S):
+			self.cache[key] = self.hashmap[key]
 
 	def set_cache_size(self,size):
 		new_size = self.cache.get_size()+int(size)
@@ -155,10 +157,7 @@ class Cache:
 	def get_replace_poll(self):
                 return self._replace_pol
 	def reset_shadow_cache():
-		self.plus=0
-		self.base=0
-		self.minus=0
-		self.shadow_cache.clear()
+		self.shadow.clear()
 
 	def print_cache(self):
 		print self.cache
