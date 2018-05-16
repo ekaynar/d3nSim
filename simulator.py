@@ -20,6 +20,9 @@ L2_lat_count=0
 L1_miss_lat=0
 L2_miss_lat=0
 
+sim_req_num=sim_end=0
+sim_req_comp=[]
+
 def build_network(config,logger,env):
 	# 1 Gbps = 125 MB/s
 	# 10 Gbps = 1250 MB/s
@@ -235,19 +238,25 @@ def CompletionEvent(request,hierarchy,logger,env,links):
 	request.set_endTime(env.now)
 	request.set_compTime( request.endTime - request.startTime)
 
+
+	global  sim_req_num
+	sim_req_num = request.reqId
+	global  sim_req_comp
+	sim_req_comp.append(request.get_compTime())
+	global  sim_end
+	sim_end = env.now
 	global  L1_miss_lat
 	global  L2_miss_lat
 	global  L1_lat_count
 	global  L2_lat_count
-	print request.fetch
 	if(int( request.fetch.split("-")[0]) == 2) or (int( request.fetch.split("-")[0]) == 3 ):
 		L1_miss_lat+=float(request.get_compTime())
 		L1_lat_count+=1
 	if (int( request.fetch.split("-")[0]) == 3 ):
 		L2_miss_lat+=float(request.get_compTime())
 		L2_lat_count+=1
-
 	utils.display(env,logger,request)
+	#utils.cacheinfo2(hierarchy)
 	issueRequests(request.client,hierarchy,logger,env,links,1)
 def generateEvent(request,hierarchy,logger,env,links):
 #	yield env.timeout(request.arrTime)
@@ -340,7 +349,7 @@ if __name__ == '__main__':
 	
 	log_filename = 'simulator.log'
 	if config.get('Simulation', 'log_file'):
-		log_file = config.get('Simulation', 'log_file')
+		log_filename = config.get('Simulation', 'log_file')
 	
 	#Clear the log file if it exists
     	with open(log_filename, 'w'):
@@ -356,14 +365,16 @@ if __name__ == '__main__':
 	hierarchy = build_d3n(config, logger)
 
 
-	logger.info('Running Simulation...')
-	print "Running Simulation..."	
 	env = simpy.Environment()
 
 	links = build_network(config,logger,env)
 #	jobList = [] 
 	fin = config.get('Simulation', 'input')
-#	jobList=inputParser(fin)
+	jobList=inputParser(fin)
+	
+	
+	logger.info('Running Simulation...')
+	print "Running Simulation..."	
 	
 	# Instantiate a thread pool with N worker threads
         clientNum = int(config.get('Simulation', 'clientNum'))
@@ -374,9 +385,9 @@ if __name__ == '__main__':
 	
 	clientList={}
 	counter=0
-	#trace=["a", "b", "c", "d", "a", "b", "f","dd","ee","g","x"]
 	trace=["a","b","d","a","f","h","b","ff","a","x","y","b","a","z","a","b","d"]
-	jobList=trace[:]
+	#trace=["a", "b", "c", "d", "a", "b", "f","dd","ee","g","x"]
+	#jobList=trace[:]
 	for i in xrange(len(jobList)):
 		reqList.append(i+1)
 	#print jobList,reqList
@@ -384,12 +395,12 @@ if __name__ == '__main__':
 		for j in range(clientNum):
 			clientList[counter]=Client(counter,i,trace,obj_size,threadNum)	
 			counter+=1	
-	for i in clientList.keys():
-		print i, clientList[i]._trace
+	#for i in clientList.keys():
+	#	print i, clientList[i]._trace
 	
-	pool = multiThread.ThreadPool(3)
+	pool = multiThread.ThreadPool(clientNum)
 	for key in clientList.keys():
-		pool.add_task(issueRequests, clientList[key],hierarchy,logger,env,links,1)
+		pool.add_task(issueRequests, clientList[key],hierarchy,logger,env,links,threadNum)
 	pool.wait_completion()
 
 
@@ -399,13 +410,19 @@ if __name__ == '__main__':
 	print "Simulation Ends"
 	print "Collecting Statistics..."	
 	
-	utils.cacheinfo2(hierarchy)
+	#utils.cacheinfo2(hierarchy)
+	stats={}
+	stats["rn"]=sim_req_num
+	stats["clist"]=sim_req_comp
+	stats["sim_end"]=sim_end
 
-	res_file=int(config.get('Simulation', 'res_file'))
+
+	res_file=config.get('Simulation', 'res_file')
 	fd = open(res_file,"a")
 	fd.write("Date:"+str(datetime.datetime.now()))
-	
+	utils.stats(hierarchy,config,fd,stats)	
 	
 	fd.close()	
 	print L1_miss_lat, L1_lat_count, L2_miss_lat,L2_lat_count
 #	set_cache_size(hierarchy,env)
+
