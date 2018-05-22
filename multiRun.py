@@ -15,8 +15,8 @@ for i in range(num):
 	lfile="logs_"+str(i)
 	L1=str(ratios[i][0])+"G"
 	L2=str(ratios[i][1])+"G"
-	data=[3,1100,1,'true','true',L1,L2,'32G','LRU','LRU','4M','consistent',lfile,'40T_job_list.txt',rfile]
-	data2=["20Gbps","40Gbps","5Gbps","20Gbps"]
+	data=[3,1100,1,'true','true',L1,L2,'32G','LRU','LRU','4M','consistent',lfile,'40T_job_list.txt','tmp1','tmp2','tmp3',rfile]
+	data2=["40Gbps","80Gbps","10Gbps","40Gbps"]
 	createConfig.gen_config(data,data2,cfile)
 
 
