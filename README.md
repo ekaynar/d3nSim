@@ -6,3 +6,11 @@ FILE INVENTORY:
 
 USAGE:
   * Edit 'config.ini' for your environment (layers; cachesize; obj sizes ...)
+  
+  
+PREREQUEST:
+```
+pip install lru-dict
+pip install clandestined
+pip install uhashring
+```
