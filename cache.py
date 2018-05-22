@@ -24,7 +24,7 @@ class Cache:
 
 	consistent = "consistent"	
 	rendezvous = "rendezvous"	
-
+	 rr = "rr"
 	def __init__(self, layer, size, replace_pol, write_pol, hash_ring, hash_type,obj_size,full_size,logger):
         	self._replace_pol = replace_pol  # Replacement policy
         	self._write_pol = write_pol  # Write policy
@@ -36,6 +36,12 @@ class Cache:
 		self.hash_ring = hash_ring
 		self._hash_type = hash_type
 		self._obj_size = obj_size
+		
+		if(self._size == 0):
+			self.zerosize = True
+			self._size=1
+		else:
+			self.zerosize = False
 	
 		if (self._replace_pol == Cache.LRU):
 			self.cache = LRU(self._size)		
@@ -55,40 +61,10 @@ class Cache:
 		self._intrarack_bw = 0
 	def _insert1(self, key, size):
 		# No eviction
-
-		if  (self._replace_pol == Cache.LRU_S):
-			self.shadow[key]=1
-
-		if (int(size) <= self.spaceLeft):
-			if (self._replace_pol == Cache.LRU):
-				self.cache[key]=int(size)
-			elif (self._replace_pol == Cache.LRU_S):
-                        	self.cache[key]=int(size)
-			elif (self._replace_pol == Cache.FIFO):
-                        	self.cache.append(key)
-			self.hashmap[key] = int(size)
-			self.spaceLeft -= int(size)
-		else:
-			while(int(size) > self.spaceLeft):
-				self._evict()
-			if (self._replace_pol == Cache.LRU):
-                                self.cache[key]=int(size)
-                        elif (self._replace_pol == Cache.LRU_S):
-                                self.cache[key]=int(size)
-                        elif (self._replace_pol == Cache.FIFO):
-                                self.cache.append(key)
-			self.hashmap[key] = int(size)
-                        self.spaceLeft -= int(size)
-
-
-
-	def _insert(self, key, size):
-		# No eviction
-
-		if  (self._replace_pol == Cache.LRU_S):
-			self.shadow[key]=1
-			self.cache[key]=int(size)
-		else:
+		if not self.zerosize:
+			if  (self._replace_pol == Cache.LRU_S):
+				self.shadow[key]=1
+	
 			if (int(size) <= self.spaceLeft):
 				if (self._replace_pol == Cache.LRU):
 					self.cache[key]=int(size)
@@ -108,11 +84,43 @@ class Cache:
 	                        elif (self._replace_pol == Cache.FIFO):
 	                                self.cache.append(key)
 				self.hashmap[key] = int(size)
-	                        self.spaceLeft -= int(size)	
-		
+	                        self.spaceLeft -= int(size)
+	
+
+
+	def _insert(self, key, size):
+		# No eviction
+		if not self.zerosize:
+			if  (self._replace_pol == Cache.LRU_S):
+			#	self.shadow[key]=1
+				self.cache[key]=int(size)
+			else:
+				if (int(size) <= self.spaceLeft):
+					if (self._replace_pol == Cache.LRU):
+						self.cache[key]=int(size)
+					elif (self._replace_pol == Cache.LRU_S):
+		                        	self.cache[key]=int(size)
+					elif (self._replace_pol == Cache.FIFO):
+		                        	self.cache.append(key)
+					self.hashmap[key] = int(size)
+					self.spaceLeft -= int(size)
+				else:
+					while(int(size) > self.spaceLeft):
+						self._evict()
+					if (self._replace_pol == Cache.LRU):
+		                                self.cache[key]=int(size)
+		                        elif (self._replace_pol == Cache.LRU_S):
+		                                self.cache[key]=int(size)
+		                        elif (self._replace_pol == Cache.FIFO):
+		                                self.cache.append(key)
+					self.hashmap[key] = int(size)
+		                        self.spaceLeft -= int(size)	
+			
 	def read1(self, key, size):
 		if self._layer == "BE":
 			return 1
+		if self.zerosize == True:
+			return None
 		"""Read a object from the cache."""
 		r = None
 	
@@ -143,6 +151,8 @@ class Cache:
 	def read(self, key, size):
 		if self._layer == "BE":
 			return 1
+                if self.zerosize == True:
+                        return None
 		"""Read a object from the cache."""
 		r = None
 	
@@ -215,6 +225,8 @@ class Cache:
 	def get_intrarack_bw(self):
 		return self._intrarack_bw
 
+	def get_replace_pol(self):
+		return self._replace_pol
 	def get_hit_count(self):
 		return self._hit_count	
 	def get_miss_count(self):
@@ -233,7 +245,10 @@ class Cache:
 
 	def get_l2_address(self,key):
 		if (self._hash_type == Cache.consistent):
-			return self.hash_ring.get_node(key)	
+			return self.hash_ring.get_node(key)
 		elif (self._hash_type == Cache.rendezvous):
 			return self.hash_ring.find_node(key)	
-			
+		elif (self._hash_type == Cache.rr):
+			val=key.split("_")[1]
+			res = int(val) % 3
+			return res
