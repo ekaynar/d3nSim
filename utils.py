@@ -33,15 +33,16 @@ def display(*arg):
                 info=""
         out = ""
         if str(request.rtype) == "read_req":
-                out = "time:"+str(env.now)+" Client:"+str(request.client._id)+" Requested:"+str(request.dest)+" "+info +" ReqId:"+str(request.reqId)+" key:"+str(request.key)+" size:"+str(request.size)+" from:"+str(request.source)+" to:"+str(request.dest)+" path:"+str(request.path)
+                out = "time:"+str(env.now)+" Client:"+str(request.client._id)+" Requested:"+str(request.dest)+" "+info +" ReqId:"+str(request.reqId)+" key:"+str(request.key).replace("\n","")+" size:"+str(request.size)+" from:"+str(request.source)+" to:"+str(request.dest)+" path:"+str(request.path)
                 #print out
 		logger.info(out)
         if str(request.rtype) == "send_data":
-                out = "time:"+str(env.now)+" Received:"+str(request.dest)+" "+info+" ReqId:"+str(request.reqId)+" key:"+str(request.key)+" size:"+str(request.size)+" from:"+str(request.source)+" to:"+str(request.dest)+" path:"+str(request.path)
+                out = "time:"+str(env.now)+" Received:"+str(request.dest)+" "+info+" ReqId:"+str(request.reqId)+" key:"+str(request.key).replace("\n","")+" size:"+str(request.size)+" from:"+str(request.source)+" to:"+str(request.dest)+" path:"+str(request.path)
                 #print out
 		logger.info(out)
         if str(request.rtype) == "completion":
-                out = "time:"+str(env.now)+" Completion:"+str(request.dest)+" ReqId:"+str(request.reqId)+" key:"+str(request.key)+" size:"+str(request.size) + "StartTime:"+str(request.startTime)+" EndTime:"+str(request.endTime)+" CompTime:"+str(request.compTime)+" Hit on:"+str(request.get_fetch())
+                out = "time:"+str(env.now)+" Completion:"+str(request.dest)+" ReqId:"+str(request.reqId)+" key:"+str(request.key).replace("\n","")+" size:"+str(request.size) + "StartTime:"+str(request.startTime)+" EndTime:"+str(request.endTime)+" CompTime:"+str(request.compTime)+" Hit on:"+str(request.get_fetch()) + " Info:"+str(request.get_info()) + " L1 Miss ID:" + str(request.missLayer1) + " L2 Miss ID:" + str(request.missLayer2) 
+
                 #print out
 		logger.info(out)
 
@@ -51,23 +52,34 @@ def cacheinfo(hierarchy):
                 print"Shadow", key,hierarchy[key].shadow_cache
                 print "Actual", key,hierarchy[key].cache
 
-def cacheinfo2(hierarchy):
+def cacheinfo2(hierarchy,config):
+	RackNum=int(config.get('Simulation', 'nodeNum'))-1
+ 	print""""-------Rack #"""+str(3)+"-------"
+
         cacheId="3-0"
-        print cacheId, hierarchy[cacheId].cache, "---","---", "Size:",hierarchy[cacheId].cache.get_size() #, "Space:", hierarchy[cacheId].spaceLeft
-        for i in range(2,-1,-1):
+	print cacheId, "Size",hierarchy[cacheId].cache.get_size(),hierarchy[cacheId]._replace_pol,hierarchy[cacheId]._hit_count, hierarchy[cacheId]._miss_count
+        for i in range(RackNum,-1,-1):
                 print""""-------Rack #"""+str(i)+"-------"
                 for j in range(2,0,-1):
                         cacheId=str(j)+"-"+str(i)
                         #print cacheId, hierarchy[cacheId].cache, "Size",hierarchy[cacheId].cache.get_size(), "Shadow", hierarchy[cacheId].shadow,"Size:",hierarchy[cacheId].shadow.get_size()," Hist", hierarchy[cacheId].hist
                         print cacheId, "Size",hierarchy[cacheId].cache.get_size(),hierarchy[cacheId]._replace_pol,hierarchy[cacheId]._hit_count, hierarchy[cacheId]._miss_count
 # "Space:", hierarchy[cacheId].spaceLeft
+	
 
-
+def missCost(hierarchy,config,fd):
+	RackNum=int(config.get('Simulation', 'nodeNum'))-1
+	for i in range(RackNum,-1,-1):
+		print""""-------Rack #"""+str(i)+"-------"
+		for j in range(2,0,-1):
+			cacheId=str(j)+"-"+str(i)
+			out = str(cacheId) + "Miss Latenyc:"+ str(hierarchy[cacheId].miss_lat) + " Miss Count:" + str(hierarchy[cacheId].lat_count)
+			print out
 def stats(hierarchy,config,fd,stats):
 	printSetupInfo(config,fd)
 	printHitMissInfo(hierarchy,fd)
-	#printRequestInfo(fd,stats,config)
-	cacheinfo2(hierarchy)
+	printRequestInfo(fd,stats,config)
+	cacheinfo2(hierarchy,config)
 	fd.close()
 
 def printSetupInfo(config,fd):

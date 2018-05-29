@@ -16,6 +16,9 @@ class Request:
 		self.endTime = 0
 		self.compTime = 0
 		self.fetch = layer
+		self.info = None
+		self.missLayer1 = None
+		self.missLayer2 = None
 	def set_time(self,time):
                 self.arrTime = time
 	def set_startTime(self,time):
@@ -24,6 +27,8 @@ class Request:
                 self.endTime = time
 	def set_compTime(self,time):
                 self.compTime = time
+	def set_info(self,info):
+                self.info = info
 	def set_source(self,source):
 		self.source = source
 	def set_fetch(self,layer):
@@ -40,6 +45,8 @@ class Request:
 		return self.dest 
 	def get_time(self):
 		return self.arrTime
+	def get_info(self):
+                return self.info
 
 
 

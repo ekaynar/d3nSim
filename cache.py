@@ -24,7 +24,7 @@ class Cache:
 
 	consistent = "consistent"	
 	rendezvous = "rendezvous"	
-	 rr = "rr"
+	rr = "rr"
 	def __init__(self, layer, size, replace_pol, write_pol, hash_ring, hash_type,obj_size,full_size,logger):
         	self._replace_pol = replace_pol  # Replacement policy
         	self._write_pol = write_pol  # Write policy
@@ -59,6 +59,10 @@ class Cache:
 		self._backend_bw = 0
 		self._crossrack_bw = 0
 		self._intrarack_bw = 0
+		self.miss_lat = 0
+		self.lat_count = 0
+
+
 	def _insert1(self, key, size):
 		# No eviction
 		if not self.zerosize:
@@ -92,8 +96,10 @@ class Cache:
 		# No eviction
 		if not self.zerosize:
 			if  (self._replace_pol == Cache.LRU_S):
-			#	self.shadow[key]=1
 				self.cache[key]=int(size)
+				self.shadow[key]=int(size)
+			elif  (self._replace_pol == Cache.LRU):
+                                self.cache[key]=int(size)
 			else:
 				if (int(size) <= self.spaceLeft):
 					if (self._replace_pol == Cache.LRU):
@@ -142,7 +148,6 @@ class Cache:
 			self._hit_count+=1
 			r = 1
 		else:
-			
 			self._miss_count+=1
 		return r
 
@@ -165,14 +170,14 @@ class Cache:
 			else:
 				self._miss_count+=1
 	
-#			if self.shadow.has_key(key):
-#				count=0
-#                                for i in self.shadow.keys():
-#                                        if i == key:
- #                                               self.hist[count]+=1
- #                                               break
- #                                       count+=1
- #                               self.shadow[key]=1
+			if self.shadow.has_key(key):
+				count=0
+                                for i in self.shadow.keys():
+                                        if i == key:
+                                                self.hist[count]+=1
+                                                break
+                                        count+=1
+                                self.shadow[key]=1
 
 
 		else:
@@ -184,8 +189,22 @@ class Cache:
 				self._hit_count+=1
 				r = 1
 			else:
-				
 				self._miss_count+=1
+		return r
+
+	def checkKey(self,key):
+                if self._layer == "BE":
+                        return 1
+                if self.zerosize == True:
+                        return 0
+                """Read a object from the cache."""
+                r = 0
+
+                if (self._replace_pol == Cache.LRU_S) or (self._replace_pol == Cache.LRU):
+                        if self.cache.has_key(key):
+                                r=1
+                        else:
+                                r=0
 		return r
 
 	def _evict(self):
@@ -250,5 +269,5 @@ class Cache:
 			return self.hash_ring.find_node(key)	
 		elif (self._hash_type == Cache.rr):
 			val=key.split("_")[1]
-			res = int(val) % 3
+			res = int(val) % int(self.hash_ring)
 			return res

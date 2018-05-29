@@ -23,7 +23,16 @@ def gen_config(array,array2,fname):
                 'input1',
                 'input2',
                 'input3',
-                'res_file',
+                'input4',
+                'input5',
+                'input6',
+                'input7',
+                'input8',
+                'input9',
+                'input10',
+                'input11',
+                'input12',
+                'res_file'
  ]
 
 	network=[
@@ -46,10 +55,10 @@ def gen_config(array,array2,fname):
 		config.write(cfgfile)
 	cfgfile.close()
 
-data=[3,1100,1,'true','true','56G','8G','32G','LRU','LRU','4M','consistent','logs','40T_job_list.txt','fout1','fout2','fout2','results.txt']
-data2=["20Gbps","40Gbps","5Gbps","20Gbps",]
-fname='example.ini'
-gen_config(data,data2,fname)
+#data=[3,1100,1,'true','true','56G','8G','32G','LRU','LRU','4M','consistent','logs','40T_job_list.txt','test1','test2','test3','test4','test5','test6','test7','test8','test9','test10,results.txt']
+#data2=["20Gbps","40Gbps","5Gbps","20Gbps",]
+#fname='example.ini'
+#gen_config(data,data2,fname)
 
 
 
