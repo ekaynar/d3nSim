@@ -7,7 +7,7 @@ def inputParser(fin):
         for line in fd:
 		val = line.split(" ")
                 jobId= val[3]
-		for i in range(2):
+		for i in range(1):
 			key=val[1]+"-"+val[2]+"_"+str(i)
 			fdout.write(key+"\n")
 			joblist.append(key)

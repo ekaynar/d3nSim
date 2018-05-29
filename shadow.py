@@ -17,7 +17,7 @@ def cost(cache1,cache2,l1_pos,l2_pos,L1_lat,L2_lat,size):
 
 def set_cache_size(hierarchy,env):
         layers=2
-        racknum=3
+        racknum=10
         cache_1=cache_2=""
         for i in range(racknum):
                 min_cost=None
@@ -47,11 +47,12 @@ def set_cache_size(hierarchy,env):
                                 l1_pos = i
                                 l2_pos = size-i
              #   print min_cost,l1_pos,l2_pos
-	
-	fd = open("position", "a")
-        fd.write(str(l1_pos)+","+ str(l2_pos))
-        fd.write("\n")
-        fd.close()
+		hierarchy[cache_1].cache.set_size(l1_pos)
+		hierarchy[cache_2].cache.set_size(l2_pos)
+		fd = open("position", "a")
+        	fd.write(str(cache_1)+","+str(cache_2)+","+str(l1_pos)+","+ str(l2_pos)+","+str(env.now))
+        	fd.write("\n")
+        	fd.close()
 
 
 def reset_counters(hierarchy,nodeNum ):

@@ -13,7 +13,7 @@ from inputParser import inputParser2
 import multiprocessing as mp
 cephLayer=3
 reqList,jobList=[],[]
-
+algo_start = False
 #L1_lat_count=0
 #L2_lat_count=0
 #L1_miss_lat=0
@@ -100,8 +100,8 @@ def build_cache(config, name, layer, hr, hashType,logger):
 
 
 def hit(request,hierarchy,logger,env,links,cacheId):
-    	shadow.print_shadows(hierarchy,cacheId)
-    	shadow.set_cache_size(hierarchy,env)
+    #	shadow.print_shadows(hierarchy,cacheId)
+    #	shadow.set_cache_size(hierarchy,env)
         request.set_fetch(cacheId)
         utils.display(env,logger,request,"Hit")
         source = [ request.dest[0],request.dest[1] ]
@@ -336,7 +336,7 @@ def CompletionEvent(request,hierarchy,logger,env,links):
 		cacheId = request.missLayer2
 		hierarchy[cacheId].miss_lat+=float(request.get_compTime())
 		hierarchy[cacheId].lat_count+=1
-	
+
 	#global  L1_miss_lat
 	#global  L2_miss_lat
 	#global  L1_lat_count
@@ -356,6 +356,11 @@ def CompletionEvent(request,hierarchy,logger,env,links):
 	#	L1_lat_count+=1
 	
 	utils.display(env,logger,request)
+	#global algo_start	
+	#if (algo_start== False) and (int(sim_req_num) > 6061):
+	#	algo_start = True
+	#	print "algo"
+	#	algo(hierarchy,env)
 	cid = request.client
 	del request
 	issueRequests(cid,hierarchy,logger,env,links,1)
@@ -386,6 +391,28 @@ def issueRequests(client,hierarchy,logger,env,links,reqNum):
 			req = Request(reqid,source,destination,obj,client._obj_size,"read_req",path,client,"")
 	                req.set_time(0)
 			generateEvent(req,hierarchy,logger,env,links)
+
+
+def x(hierarchy,env):
+	global algo_start
+	for i in range(10):
+		
+		if (algo_start== False):
+			yield env.timeout(100)
+			algo_start =True
+		else:
+			yield env.timeout(50)
+		shadow.set_cache_size(hierarchy,env)
+		shadow.reset_counters(hierarchy,10)
+		print "shadow"
+
+def algo(hierarchy,env):
+	for i in range (20):
+		env.process(x(hierarchy,env))
+		#shadow.set_cache_size(hierarchy,env)
+#		yield env.timeout(10)
+		
+
 
 
 
@@ -472,7 +499,8 @@ if __name__ == '__main__':
 		pool.add_task(issueRequests, clientList[key],hierarchy,logger,env,links,threadNum)
 	pool.wait_completion()
 
-
+	env.process(x(hierarchy,env))
+	
 	env.run()
 
 	#test_cache(jobList,hierarchy)	
