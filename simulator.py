@@ -13,7 +13,7 @@ from inputParser import inputParser2
 import multiprocessing as mp
 from collections import deque
 
-
+cephLayer = 3
 algo_start = False
 
 count_w=0
@@ -23,7 +23,6 @@ def build_network(config,logger,env):
 	# 1 Gbps = 125 MB/s
 	# 10 Gbps = 1250 MB/s
 	# 40 Gbps = 5000 MB/s
-	TOR_SIZE=1
 	links={}
 	L1_In = float(config.get('Network', 'L1_In').split("G")[0])/8*1000*1000*1000
 	L2_In = float(config.get('Network', 'L2_In').split("G")[0])/8*1000*1000*1000
@@ -66,14 +65,12 @@ def build_d3n(config, logger):
 		cephLayer=2
 		for i in range(numNodes):
 			name = "1-"+str(i)
-			caches_l1[i]=build_cache(config, name, 'L1', hr, hashType,logger) 
-			hierarchy[name]=caches_l1[i]
+			hierarchy[name]=build_cache(config, name, 'L1', hr, hashType,logger)
 	if config.get('Simulation', 'L2') == "true" :
 		cephLayer=3
 		for i in range(numNodes):
 			name = "2-"+str(i)
-			caches_l2[i]=build_cache(config, name, 'L2', hr, hashType, logger)
-			hierarchy[name]=caches_l2[i]
+			hierarchy[name]=build_cache(config, name, 'L2', hr, hashType, logger)
 
 	backend=build_cache(config, name, 'BE', hr, hashType, logger)
 	name = str(cephLayer)+"-0"
@@ -306,15 +303,11 @@ def issueRequests(client,hierarchy,logger,env,links,reqNum):
 #	if client._trace:
 	if jobList:
 		for i in range(int(reqNum)) :
-		#	obj=client._trace.pop(0)
-#			obj=jobList.pop(0)
-		#	reqid=int(reqList.pop(0))
 			#obj=client._trace.popleft()
 			obj=jobList.popleft()
 			reqid=int(reqList.popleft())
 			
 			path,destination,source=[],[],[]
-			#reqid +=1
 	                destination.append(1)
 	                destination.append(client._rackid)
 			source=[0,client._rackid]
