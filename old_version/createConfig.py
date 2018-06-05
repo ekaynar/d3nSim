@@ -14,7 +14,6 @@ def gen_config(array,array2,fname):
                 'L1_size',
                 'L2_size',
                 'shadow_size',
-		'shadow_window',
                 'L1_rep',
                 'L2_rep',
                 'obj_size',

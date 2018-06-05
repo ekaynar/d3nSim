@@ -97,7 +97,7 @@ class Cache:
 		if not self.zerosize:
 			if  (self._replace_pol == Cache.LRU_S):
 				self.cache[key]=int(size)
-	#			self.shadow[key]=int(size)
+				self.shadow[key]=int(size)
 			elif  (self._replace_pol == Cache.LRU):
                                 self.cache[key]=int(size)
 			else:
@@ -139,8 +139,6 @@ class Cache:
 						break
 					count+=1
 				self.shadow[key]=1	
-			else:
-				 self.shadow[key]=1
 
 		if key in self.hashmap:
 			if (self._replace_pol == Cache.LRU):
@@ -180,9 +178,7 @@ class Cache:
                                                 break
                                         count+=1
                                 self.shadow[key]=1
-			else:
-				self.shadow[key]=1
-			
+
 
 		else:
 			if key in self.hashmap:

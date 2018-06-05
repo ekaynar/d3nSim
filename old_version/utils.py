@@ -164,11 +164,10 @@ def printRequestInfo(fd,stats,config):
 	print len(stats["clist"])
 	out = "AVG Response Time: "+str(float(sum)/len(stats["clist"]))+"\n"
 	fd.write(out)
-	data = float(stats["count_w"])*obj_size/1024/1024
+	data = float(stats["rn"])*obj_size/1024/1024
 	out = "Processed Data: "+str(data)+" MB \n"
 	fd.write(out)
-	th =  data/(float(stats["sim_end"])-float(stats["warmup"]))
+	th =  data/float(stats["sim_end"])
 	out = "AVG Throughput: "+str(th)+" MB/s \n"
-	
 	fd.write(out)
 
