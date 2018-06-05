@@ -10,13 +10,21 @@ USAGE:
   
 PREREQUEST:
 ```
+pip install simpy
 pip install lru-dict
 pip install clandestined
 pip install uhashring
 ```
 
-
-
+# Input Trace File Format
+ * sample.input - Sample trace.
+ 
+ Each line represents "4M" object requests. Simulator read the trace and start issuing these requests.
+ 
+# Configuring Simulation For Your Enviroment 
+  Edit 'config.ini' Certain variables must be configured for your test environment.
+ 
+ 
 # Running Multiple Configuration Settings
  * Create input files per racks. You have to edit the 'inputParser.py'
  ```
