@@ -21,7 +21,23 @@ def get_obj_size(config):
                         obj_size=(int(items[0])*1024*1024)
         return obj_size
 
+def get_link_id(source,dest):
+        slayer=source[0]
+        srack=source[1]
+        dlayer=dest[0]
+        drack=dest[1]
+        sLinkId=dLinkId=None
+        if (slayer == 3):
+                sLinkId = None
+        else:
+                sLinkId = "L"+str(slayer)+"out0r"+str(srack)
 
+        if (dlayer == 0):
+                dLinkId=None
+        else:
+                dLinkId = "L"+str(dlayer)+"in1r"+str(drack)
+
+        return sLinkId,dLinkId
 
 def display(*arg):
         env=arg[0]
@@ -47,25 +63,6 @@ def display(*arg):
 		logger.info(out)
 
 
-def cacheinfo(hierarchy):
-        for key in hierarchy.keys():
-                print"Shadow", key,hierarchy[key].shadow_cache
-                print "Actual", key,hierarchy[key].cache
-
-def cacheinfo2(hierarchy,config):
-	RackNum=int(config.get('Simulation', 'nodeNum'))-1
- 	print""""-------Rack #"""+str(3)+"-------"
-
-        cacheId="3-0"
-	print cacheId, "Size",hierarchy[cacheId].cache.get_size(),hierarchy[cacheId]._replace_pol,hierarchy[cacheId]._hit_count, hierarchy[cacheId]._miss_count
-        for i in range(RackNum,-1,-1):
-                print""""-------Rack #"""+str(i)+"-------"
-                for j in range(2,0,-1):
-                        cacheId=str(j)+"-"+str(i)
-                        #print cacheId, hierarchy[cacheId].cache, "Size",hierarchy[cacheId].cache.get_size(), "Shadow", hierarchy[cacheId].shadow,"Size:",hierarchy[cacheId].shadow.get_size()," Hist", hierarchy[cacheId].hist
-                        print cacheId, "Size",hierarchy[cacheId].cache.get_size(),hierarchy[cacheId]._replace_pol,hierarchy[cacheId]._hit_count, hierarchy[cacheId]._miss_count
-# "Space:", hierarchy[cacheId].spaceLeft
-	
 
 def missCost(hierarchy,config,fd):
 	RackNum=int(config.get('Simulation', 'nodeNum'))-1
@@ -172,3 +169,18 @@ def printRequestInfo(fd,stats,config):
 	
 	fd.write(out)
 
+
+def cacheinfo2(hierarchy,config):
+	RackNum=int(config.get('Simulation', 'nodeNum'))-1
+ 	print""""-------Rack #"""+str(3)+"-------"
+
+        cacheId="3-0"
+	print cacheId, "Size",hierarchy[cacheId].cache.get_size(),hierarchy[cacheId]._replace_pol,hierarchy[cacheId]._hit_count, hierarchy[cacheId]._miss_count
+        for i in range(RackNum,-1,-1):
+                print""""-------Rack #"""+str(i)+"-------"
+                for j in range(2,0,-1):
+                        cacheId=str(j)+"-"+str(i)
+                        #print cacheId, hierarchy[cacheId].cache, "Size",hierarchy[cacheId].cache.get_size(), "Shadow", hierarchy[cacheId].shadow,"Size:",hierarchy[cacheId].shadow.get_size()," Hist", hierarchy[cacheId].hist
+                        print cacheId, "Size",hierarchy[cacheId].cache.get_size(),hierarchy[cacheId]._replace_pol,hierarchy[cacheId]._hit_count, hierarchy[cacheId]._miss_count
+# "Space:", hierarchy[cacheId].spaceLeft
+	

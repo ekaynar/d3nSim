@@ -7,8 +7,6 @@ class Request:
 		self.dest = dest
 		self.key=key
 		self.size=size
-		self.arrTime=0
-		self.layer=0
 		self.rtype = rtype
 		self.path = path
 		self.client = client
@@ -19,8 +17,6 @@ class Request:
 		self.info = None
 		self.missLayer1 = None
 		self.missLayer2 = None
-	def set_time(self,time):
-                self.arrTime = time
 	def set_startTime(self,time):
                 self.startTime = time
 	def set_endTime(self,time):
@@ -43,8 +39,6 @@ class Request:
 		return self.fetch
 	def get_destination(self):
 		return self.dest 
-	def get_time(self):
-		return self.arrTime
 	def get_info(self):
                 return self.info
 
