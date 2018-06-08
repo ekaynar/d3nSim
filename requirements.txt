@@ -1,0 +1,5 @@
+simpy>=3.0.10
+numpy>=1.14.0
+lru-dict>=1.1.6
+clandestined>=1.0.1
+uhashring>=1.1
