@@ -28,6 +28,14 @@ pip install -r requirements.txt
  Each line represents "4M" object requests. Simulator read the trace and start issuing these requests.
  
 
+# Usage
+
+```
+python simulator.py -c <config_file>
+```
+
+# Documentation
+
 
 # Running Multiple Configuration Settings
  * Create input files per racks. You have to edit the 'inputParser.py'
