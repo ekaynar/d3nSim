@@ -1,5 +1,9 @@
 # D3NSim: Event-Driven Simulation for D3N
-FILE INVENTORY:
+
+D3NSim is implemented using [simpy](https://simpy.readthedocs.io/en/latest/) which is a process-based discrete-event simulation based on Python.
+
+
+# File Inventory:
   * config.ini - Config File
   * simulator.py - Main simulator code which executes the simulator
   * multiRun.py - Run simulator with multiple configuration settings in parallel
@@ -8,7 +12,7 @@ USAGE:
   * Edit 'config.ini' for your environment (layers; cachesize; obj sizes ...)
   
   
-PREREQUEST:
+# Prerequisites:
 ```
 pip install simpy
 pip install lru-dict
