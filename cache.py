@@ -61,38 +61,11 @@ class Cache:
 		self._intrarack_bw = 0
 		self.miss_lat = 0
 		self.lat_count = 0
+		self.request_list={}
 
 
-	def _insert1(self, key, size):
-		# No eviction
-		if not self.zerosize:
-			if  (self._replace_pol == Cache.LRU_S):
-				self.shadow[key]=1
-	
-			if (int(size) <= self.spaceLeft):
-				if (self._replace_pol == Cache.LRU):
-					self.cache[key]=int(size)
-				elif (self._replace_pol == Cache.LRU_S):
-	                        	self.cache[key]=int(size)
-				elif (self._replace_pol == Cache.FIFO):
-	                        	self.cache.append(key)
-				self.hashmap[key] = int(size)
-				self.spaceLeft -= int(size)
-			else:
-				while(int(size) > self.spaceLeft):
-					self._evict()
-				if (self._replace_pol == Cache.LRU):
-	                                self.cache[key]=int(size)
-	                        elif (self._replace_pol == Cache.LRU_S):
-	                                self.cache[key]=int(size)
-	                        elif (self._replace_pol == Cache.FIFO):
-	                                self.cache.append(key)
-				self.hashmap[key] = int(size)
-	                        self.spaceLeft -= int(size)
-	
 
-
-	def _insert(self, key, size):
+	def insert(self, key, size):
 		# No eviction
 		if not self.zerosize:
 			if  (self._replace_pol == Cache.LRU_S):
@@ -122,37 +95,6 @@ class Cache:
 					self.hashmap[key] = int(size)
 		                        self.spaceLeft -= int(size)	
 			
-	def read1(self, key, size):
-		if self._layer == "BE":
-			return 1
-		if self.zerosize == True:
-			return None
-		"""Read a object from the cache."""
-		r = None
-	
-		if (self._replace_pol == Cache.LRU_S):
-			if self.shadow.has_key(key):
-				count=0
-				for i in self.shadow.keys():
-					if i == key:
-						self.hist[count]+=1
-						break
-					count+=1
-				self.shadow[key]=1	
-			else:
-				 self.shadow[key]=1
-
-		if key in self.hashmap:
-			if (self._replace_pol == Cache.LRU):
-                        	self._update_use(key)
-			elif (self._replace_pol == Cache.LRU_S):
-				self._update_use(key)	
-			self._hit_count+=1
-			r = 1
-		else:
-			self._miss_count+=1
-		return r
-
 
 	
 	def read(self, key, size):

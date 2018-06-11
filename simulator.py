@@ -120,15 +120,11 @@ def miss(request,hierarchy,logger,env,links,cacheId):
         if r:
                 if ((request.dest[1] == dest[1] ) and (request.dest[0] == 1)):
                         hierarchy[cacheId]._miss_count-=1
-                else:
-			request.missLayer1=str(request.dest[0])+"-"+str(request.dest[1])
                 request.dest = dest
 		
         else:
 
-		if not((request.dest[1] == dest[1] ) and (request.dest[0] == 1)):
-			request.missLayer1=str(request.dest[0])+"-"+str(request.dest[1])
-		request.missLayer2=cid
+		utils.add_cache_request_time(hierarchy[cid],env.now,request)
                 request.dest = dest
 		request.path.append([dest[0],dest[1] ])
                 utils.display(env,logger,request,"Miss")
@@ -146,6 +142,7 @@ def readEvent(request,hierarchy,logger,env,links):
                 hit(request,hierarchy,logger,env,links,cacheId)
 				
         else:
+		utils.add_cache_request_time(hierarchy[cacheId],env.now,request)
 		miss(request,hierarchy,logger,env,links,cacheId)
 				
 def SendEvent(request,hierarchy,logger,env,links):
@@ -181,13 +178,15 @@ def SendEvent(request,hierarchy,logger,env,links):
 	if (request.source[0] == cephLayer):
 		utils.display(env,logger,request,"From Ceph")
 		size = float(request.size)/float(obj_size)
-		hierarchy[cacheId]._insert(request.key,size)
+		hierarchy[cacheId].insert(request.key,size)
+		utils.get_latency(request,hierarchy[cacheId],env.now)		
 	
 	elif (int(request.source[1]) != int(request.dest[1])):
 		utils.display(env,logger,request,"Remote L2")
 		size = float(request.size)/float(obj_size)
-		hierarchy[cacheId]._insert(request.key,size)
+		hierarchy[cacheId].insert(request.key,size)
 		request.set_info("Remote_L2")
+		utils.get_latency(request,hierarchy[cacheId],env.now)		
 	else:
 		utils.display(env,logger,request,"Local L2")
 		request.set_info("Local_L2")
@@ -231,14 +230,6 @@ def CompletionEvent(request,hierarchy,logger,env,links):
 		sim_req_comp.append(request.get_compTime())
 	global  sim_end
 	sim_end = env.now
-	if request.missLayer1:
-		cacheId = request.missLayer1
-		hierarchy[cacheId].miss_lat+=float(request.get_compTime())
-		hierarchy[cacheId].lat_count+=1
-	if request.missLayer2:
-		cacheId = request.missLayer2
-		hierarchy[cacheId].miss_lat+=float(request.get_compTime())
-		hierarchy[cacheId].lat_count+=1
 
 	utils.display(env,logger,request)
 	cid = request.client
@@ -351,6 +342,7 @@ if __name__ == '__main__':
 	obj_size=utils.get_obj_size(config)
 	for i in xrange(10000000):
 		reqList.append(i+1)
+
 	for i in range(nodeNum):
 		for j in range(clientNum):
 			clientList[counter]=Client(counter,i,jobList[i],obj_size,threadNum)	

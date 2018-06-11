@@ -39,6 +39,15 @@ def get_link_id(source,dest):
 
         return sLinkId,dLinkId
 
+def add_cache_request_time(cache,time,request):
+	cache.request_list[request.reqId]=time	
+
+
+def get_latency(request, cache, time):
+	cache.miss_lat += (time - cache.request_list[request.reqId])
+	cache.lat_count += 1
+	print request.reqId, (time - cache.request_list[request.reqId])
+
 def display(*arg):
         env=arg[0]
 	logger=arg[1]
