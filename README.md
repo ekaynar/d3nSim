@@ -1,46 +1,53 @@
 # D3NSim: Event-Driven Simulation for D3N
-FILE INVENTORY:
+
+D3NSim is a multi-layer datacenter-scale cache architecture simulation for hierarchical network topologies.
+
+D3NSim is implemented using [simpy](https://simpy.readthedocs.io/en/latest/) which is a process-based discrete-event simulation based on Python.
+
+
+# File Inventory:
   * config.ini - Config File
   * simulator.py - Main simulator code which executes the simulator
   * multiRun.py - Run simulator with multiple configuration settings in parallel
 
-USAGE:
-  * Edit 'config.ini' for your environment (layers; cachesize; obj sizes ...)
-  
-  
-PREREQUEST:
+# Prerequisites:
+Install all the required dependencies:
 ```
-pip install simpy
-pip install lru-dict
-pip install clandestined
-pip install uhashring
+pip install simpy lru-dict clandestined uhashring numpy
+```
+or
+```
+pip install -r requirements.txt
 ```
 
+# Configuring Simulation For Your Enviroment 
+  Edit 'config.ini' for your environment. Certain variables must be configured for your test environment.
+ 
+  
 # Input Trace File Format
  * sample.input - Sample trace.
  
  Each line represents "4M" object requests. Simulator read the trace and start issuing these requests.
  
-# Configuring Simulation For Your Enviroment 
-  Edit 'config.ini' Certain variables must be configured for your test environment.
- 
- 
+
+# Usage
+
+```
+python simulator.py -c <config_file>
+```
+
+# Documentation
+
+Please refer to [D3NSim wiki](https://github.com/ekaynar/d3nSim/wiki) for details.
+
 # Running Multiple Configuration Settings
- * Create input files per racks. You have to edit the 'inputParser.py'
- ```
- python inputParser.py test
  
- ```
- The program generates multiple files called test1,test2,test3...
- 
- * Edit 'data' variable on multiRun.py. 
+* Edit 'data' variable on multiRun.py. 'multiRun.py' will create separate config file per test case and store the log and result of each run in a seperate file.
  
  ``` python multiRun.py```
  
- 'multiRun.py' will create separate config files per test and store the log and result files of the test in seperate files.
- 
- * Parsing Results
- The script parse result.txt_ files and display results in a single table.
+ * Displayin Results
+ The script parses result.txt_ files and displays results in a single table.
  ```
  ./par.sh
  ```
