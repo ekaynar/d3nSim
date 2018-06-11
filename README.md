@@ -36,6 +36,7 @@ python simulator.py -c <config_file>
 
 # Documentation
 
+Please refer to [D3NSim wiki](https://github.com/ekaynar/d3nSim/wiki) for details.
 
 # Running Multiple Configuration Settings
  * Create input files per racks. You have to edit the 'inputParser.py'
