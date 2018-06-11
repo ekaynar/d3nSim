@@ -39,21 +39,13 @@ python simulator.py -c <config_file>
 Please refer to [D3NSim wiki](https://github.com/ekaynar/d3nSim/wiki) for details.
 
 # Running Multiple Configuration Settings
- * Create input files per racks. You have to edit the 'inputParser.py'
- ```
- python inputParser.py test
  
- ```
- The program generates multiple files called test1,test2,test3...
- 
- * Edit 'data' variable on multiRun.py. 
+* Edit 'data' variable on multiRun.py. 'multiRun.py' will create separate config file per test case and store the log and result of each run in a seperate file.
  
  ``` python multiRun.py```
  
- 'multiRun.py' will create separate config files per test and store the log and result files of the test in seperate files.
- 
- * Parsing Results
- The script parse result.txt_ files and display results in a single table.
+ * Displayin Results
+ The script parses result.txt_ files and displays results in a single table.
  ```
  ./par.sh
  ```
