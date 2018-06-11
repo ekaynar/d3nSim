@@ -8,27 +8,27 @@ D3NSim is implemented using [simpy](https://simpy.readthedocs.io/en/latest/) whi
   * simulator.py - Main simulator code which executes the simulator
   * multiRun.py - Run simulator with multiple configuration settings in parallel
 
-USAGE:
-  * Edit 'config.ini' for your environment (layers; cachesize; obj sizes ...)
-  
-  
 # Prerequisites:
+Install all the required dependencies:
 ```
-pip install simpy
-pip install lru-dict
-pip install clandestined
-pip install uhashring
+pip install simpy lru-dict clandestined uhashring numpy
+```
+or
+```
+pip install -r requirements.txt
 ```
 
+# Configuring Simulation For Your Enviroment 
+  Edit 'config.ini' for your environment. Certain variables must be configured for your test environment.
+ 
+  
 # Input Trace File Format
  * sample.input - Sample trace.
  
  Each line represents "4M" object requests. Simulator read the trace and start issuing these requests.
  
-# Configuring Simulation For Your Enviroment 
-  Edit 'config.ini' Certain variables must be configured for your test environment.
- 
- 
+
+
 # Running Multiple Configuration Settings
  * Create input files per racks. You have to edit the 'inputParser.py'
  ```
