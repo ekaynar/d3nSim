@@ -21,19 +21,8 @@ def gen_config(array,array2,fname):
                 'hashType',
                 'log_file',
                 'input',
-                'input1',
-                'input2',
-                'input3',
-                'input4',
-                'input5',
-                'input6',
-                'input7',
-                'input8',
-                'input9',
-                'input10',
-                'input11',
-                'input12',
-                'res_file'
+                'res_file',
+		'adaptive_algorithm'
  ]
 
 	network=[

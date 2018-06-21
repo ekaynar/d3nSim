@@ -94,7 +94,6 @@ def build_cache(config, name, layer, hr, hashType,logger):
 	return cache.Cache(layer,size , config.get('Simulation', name) , "WT", hr, hashType, obj_size,shadow_size,logger)
 
 
-
 def hit(request,hierarchy,logger,env,links,cacheId):
         request.set_fetch(cacheId)
         utils.display(env,logger,request,"Hit")
@@ -121,6 +120,7 @@ def miss(request,hierarchy,logger,env,links,cacheId):
                 if ((request.dest[1] == dest[1] ) and (request.dest[0] == 1)):
                         hierarchy[cacheId]._miss_count-=1
                 request.dest = dest
+		hit(request,hierarchy,logger,env,links,cid)
 		
         else:
 
@@ -131,7 +131,7 @@ def miss(request,hierarchy,logger,env,links,cacheId):
                 cacheId = "3-0"
                 request.source = dest
                 request.dest = [3,0]
-	hit(request,hierarchy,logger,env,links,cacheId)
+		hit(request,hierarchy,logger,env,links,cacheId)
 
 
 def readEvent(request,hierarchy,logger,env,links):
@@ -180,13 +180,14 @@ def SendEvent(request,hierarchy,logger,env,links):
 		size = float(request.size)/float(obj_size)
 		hierarchy[cacheId].insert(request.key,size)
 		utils.get_latency(request,hierarchy[cacheId],env.now)		
-	
+			
 	elif (int(request.source[1]) != int(request.dest[1])):
 		utils.display(env,logger,request,"Remote L2")
 		size = float(request.size)/float(obj_size)
 		hierarchy[cacheId].insert(request.key,size)
 		request.set_info("Remote_L2")
-		utils.get_latency(request,hierarchy[cacheId],env.now)		
+		if ( int(request.fetch.split("-")[0]) == 2):
+			utils.get_latency(request,hierarchy[cacheId],env.now)		
 	else:
 		utils.display(env,logger,request,"Local L2")
 		request.set_info("Local_L2")
@@ -222,12 +223,12 @@ def CompletionEvent(request,hierarchy,logger,env,links):
 	sim_req_num +=1
 	global  sim_req_comp
 	global  count_w
-	global  warmup
-	if (int(env.now)>26):  
-		count_w+=1
-		if (warmup == 0):
-			warmup = env.now
-		sim_req_comp.append(request.get_compTime())
+#	global  warmup
+#	if (int(env.now)>26):  
+	count_w+=1
+#		if (warmup == 0):
+#			warmup = env.now
+	sim_req_comp.append(request.get_compTime())
 	global  sim_end
 	sim_end = env.now
 
@@ -271,7 +272,6 @@ def adaptive_algorithm(hierarchy,env,shadow_window,nodeNum):
 			yield env.timeout(4)
 		adaptive.set_cache_size(hierarchy,env,shadow_window,nodeNum)
 
-
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description='Simulate a cache')
     	parser.add_argument('-c','--config-file', help='Configuration file for the memory heirarchy', required=True)
@@ -314,38 +314,27 @@ if __name__ == '__main__':
 	logger.info('Parsing Trace File...')
 	print "Parsing Trace File..."	
 	jobList=deque()
-	jobList=inputParser(config.get('Simulation', 'input'))
+	inputParser(config.get('Simulation', 'input'),jobList)
 	
 	# Instantiate a thread pool with N worker threads
         clientNum = int(config.get('Simulation', 'clientNum'))
         nodeNum = int(config.get('Simulation', 'nodeNum'))
         threadNum = int(config.get('Simulation', 'threadNum'))
         shadow_window = int(config.get('Simulation', 'shadow_window'))
+        f_adapt = config.get('Simulation', 'adaptive_algorithm')
 
 	clientList={}
 	counter=0
 	reqList=deque()
 
-	#jobList=deque()
-	#jobList.append(inputParser2(config.get('Simulation', 'input1')))
-	#jobList.append(inputParser2(config.get('Simulation', 'input2')))
-	#jobList.append(inputParser2(config.get('Simulation', 'input3')))
-	#jobList.append(inputParser2(config.get('Simulation', 'input4')))
-	#jobList.append(inputParser2(config.get('Simulation', 'input5')))
-	#jobList.append(inputParser2(config.get('Simulation', 'input6')))
-	#jobList.append(inputParser2(config.get('Simulation', 'input7')))
-	#jobList.append(inputParser2(config.get('Simulation', 'input8')))
-	#jobList.append(inputParser2(config.get('Simulation', 'input9')))
-	#jobList.append(inputParser2(config.get('Simulation', 'input10')))
-	#jobList.append(inputParser2(config.get('Simulation', 'input11')))
-	#jobList.append(inputParser2(config.get('Simulation', 'input12')))
 	obj_size=utils.get_obj_size(config)
-	for i in xrange(10000000):
+	for i in xrange(len(jobList)):
 		reqList.append(i+1)
-
+	
+	jobList2=deque()
 	for i in range(nodeNum):
 		for j in range(clientNum):
-			clientList[counter]=Client(counter,i,jobList[i],obj_size,threadNum)	
+			clientList[counter]=Client(counter,i,jobList2,obj_size,threadNum)	
 			counter+=1	
 	
 	
@@ -353,8 +342,8 @@ if __name__ == '__main__':
 	for key in clientList.keys():
 		pool.add_task(request_generator, clientList[key],hierarchy,logger,env,links,threadNum)
 	pool.wait_completion()
-
-	env.process(adaptive_algorithm(hierarchy,env,shadow_window,nodeNum))
+	if( f_adapt == 'true'):
+		env.process(adaptive_algorithm(hierarchy,env,shadow_window,nodeNum))
 	
 	logger.info('Running Simulation...')
 	print "Running Simulation..."	

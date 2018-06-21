@@ -15,8 +15,6 @@ class Request:
 		self.compTime = 0
 		self.fetch = layer
 		self.info = None
-		self.missLayer1 = None
-		self.missLayer2 = None
 	def set_startTime(self,time):
                 self.startTime = time
 	def set_endTime(self,time):

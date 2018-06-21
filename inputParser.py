@@ -2,20 +2,18 @@ import sys
 import numpy as np
 from collections import deque
 
-def inputParser(fin):
-	joblist=deque()
+def inputParser(fin,joblist):
         fd = open(fin, 'r')
         fdout = open("fout", 'w')
         for line in fd:
 		val = line.split(" ")
                 jobId= val[3]
-		for i in range(1):
+		for i in range(128):
 			key=val[1]+"-"+val[2]+"_"+str(i)
 			fdout.write(key+"\n")
 			joblist.append(key)
         fd.close()
         fdout.close()
-	return joblist
 
 
 def binom(fin):

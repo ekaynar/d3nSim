@@ -42,11 +42,10 @@ def get_link_id(source,dest):
 def add_cache_request_time(cache,time,request):
 	cache.request_list[request.reqId]=time	
 
-
 def get_latency(request, cache, time):
 	cache.miss_lat += (time - cache.request_list[request.reqId])
 	cache.lat_count += 1
-	print request.reqId, (time - cache.request_list[request.reqId])
+	del cache.request_list[request.reqId]
 
 def display(*arg):
         env=arg[0]
@@ -66,7 +65,7 @@ def display(*arg):
                 #print out
 		logger.info(out)
         if str(request.rtype) == "completion":
-                out = "time:"+str(env.now)+" Completion:"+str(request.dest)+" ReqId:"+str(request.reqId)+" key:"+str(request.key).replace("\n","")+" size:"+str(request.size) + "StartTime:"+str(request.startTime)+" EndTime:"+str(request.endTime)+" CompTime:"+str(request.compTime)+" Hit on:"+str(request.get_fetch()) + " Info:"+str(request.get_info()) + " L1 Miss ID:" + str(request.missLayer1) + " L2 Miss ID:" + str(request.missLayer2) 
+                out = "time:"+str(env.now)+" Completion:"+str(request.dest)+" ReqId:"+str(request.reqId)+" key:"+str(request.key).replace("\n","")+" size:"+str(request.size) + "StartTime:"+str(request.startTime)+" EndTime:"+str(request.endTime)+" CompTime:"+str(request.compTime)+" Hit on:"+str(request.get_fetch()) + " Info:"+str(request.get_info())  
 
                 #print out
 		logger.info(out)
