@@ -1,8 +1,6 @@
 # D3NSim: Event-Driven Simulation for D3N
 
-D3NSim is a multi-layer datacenter-scale cache architecture simulation for hierarchical network topologies.
-
-D3NSim is implemented using [simpy](https://simpy.readthedocs.io/en/latest/) which is a process-based discrete-event simulation based on Python.
+D3NSim is a multi-layer datacenter-scale cache architecture simulation for hierarchical network topologies. The simulation framework is implemented using [simpy](https://simpy.readthedocs.io/en/latest/) which is a process-based discrete-event simulation based on Python.
 
 
 # File Inventory:
