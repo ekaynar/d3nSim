@@ -12,10 +12,7 @@ D3NSim is implemented using [simpy](https://simpy.readthedocs.io/en/latest/) whi
 
 # Prerequisites:
 Install all the required dependencies:
-```
-pip install simpy lru-dict clandestined uhashring numpy
-```
-or
+
 ```
 pip install -r requirements.txt
 ```
