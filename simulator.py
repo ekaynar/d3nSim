@@ -315,7 +315,7 @@ if __name__ == '__main__':
 	print "Parsing Trace File..."	
 	jobList=deque()
 	inputParser(config.get('Simulation', 'input'),jobList)
-	
+        exit(0)	
 	# Instantiate a thread pool with N worker threads
         clientNum = int(config.get('Simulation', 'clientNum'))
         nodeNum = int(config.get('Simulation', 'nodeNum'))

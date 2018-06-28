@@ -7,8 +7,7 @@ def inputParser(fin,joblist):
         fdout = open("fout", 'w')
         for line in fd:
 		val = line.split(" ")
-                jobId= val[3]
-		for i in range(128):
+		for i in range(256):
 			key=val[1]+"-"+val[2]+"_"+str(i)
 			fdout.write(key+"\n")
 			joblist.append(key)
@@ -16,20 +15,21 @@ def inputParser(fin,joblist):
         fdout.close()
 
 
-def binom(fin):
+def binomial_dist(fin):
 	num=10
-	size = 10240
+	size =100000 
 	a=["a","b","c","d","e","f","g","h","i","j"]
 	#a=["","","","","","","","","","","",""]
 	
-	n, p = 70000, .5
+	n, p = 500, .5
 	s = np.random.binomial(n, p, size)
 	print s
 	print ""
 	print np.sort(s)
 	print ""
 	print len(np.unique(s))
-	x = np.random.poisson(n,40)
+	x = np.random.poisson(n,20)
+
 
 	for k in range(1,num+1):
 		name = fin+str(k)
@@ -40,7 +40,7 @@ def binom(fin):
 				fdout.write(key+"\n")
 
 #
-#	print x
+	print x
 
 def inputParser3(fin):
         num=10
@@ -69,5 +69,5 @@ def inputParser2(fin):
 	return joblist
 if __name__ == '__main__':
 #	zipf()
-	binom(sys.argv[1])
+	binomial_dist(sys.argv[1])
 #	inputParser3(sys.argv[1])
