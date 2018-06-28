@@ -264,14 +264,14 @@ def request_generator(client,hierarchy,logger,env,links,reqNum):
 
 def adaptive_algorithm(hierarchy,env,shadow_window,nodeNum):
 	global algo_start
-	for i in range(100):
-		if (algo_start== False):
-			yield env.timeout(26)
+	for i in range(6):
+		if (algo_start == False):
+			yield env.timeout(350)
 			algo_start =True
 		else:
-			yield env.timeout(4)
+			yield env.timeout(200)
 		adaptive.set_cache_size(hierarchy,env,shadow_window,nodeNum)
-
+		
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description='Simulate a cache')
     	parser.add_argument('-c','--config-file', help='Configuration file for the memory heirarchy', required=True)
@@ -315,7 +315,6 @@ if __name__ == '__main__':
 	print "Parsing Trace File..."	
 	jobList=deque()
 	inputParser(config.get('Simulation', 'input'),jobList)
-        exit(0)	
 	# Instantiate a thread pool with N worker threads
         clientNum = int(config.get('Simulation', 'clientNum'))
         nodeNum = int(config.get('Simulation', 'nodeNum'))

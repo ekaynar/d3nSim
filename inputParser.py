@@ -7,40 +7,13 @@ def inputParser(fin,joblist):
         fdout = open("fout", 'w')
         for line in fd:
 		val = line.split(" ")
-		for i in range(256):
+		for i in range(4):
 			key=val[1]+"-"+val[2]+"_"+str(i)
 			fdout.write(key+"\n")
 			joblist.append(key)
         fd.close()
         fdout.close()
 
-
-def binomial_dist(fin):
-	num=10
-	size =100000 
-	a=["a","b","c","d","e","f","g","h","i","j"]
-	#a=["","","","","","","","","","","",""]
-	
-	n, p = 500, .5
-	s = np.random.binomial(n, p, size)
-	print s
-	print ""
-	print np.sort(s)
-	print ""
-	print len(np.unique(s))
-	x = np.random.poisson(n,20)
-
-
-	for k in range(1,num+1):
-		name = fin+str(k)
-		fdout = open(name, 'w')
-		for j in range(1):
-			for i in range(size):
-				key = "key"+a[k-1]+"_"+str(s[i])
-				fdout.write(key+"\n")
-
-#
-	print x
 
 def inputParser3(fin):
         num=10
@@ -54,11 +27,6 @@ def inputParser3(fin):
 				key = "key"+a[k-1]+"_"+str(i)
 				fdout.write(key+"\n")
         	fdout.close()
-def zipf():
-
-	a = 2. # parameter
-	s = np.random.zipf(a, 1000)
-	print s
 
 def inputParser2(fin):
 	joblist=[]
@@ -68,6 +36,4 @@ def inputParser2(fin):
         fdout.close()
 	return joblist
 if __name__ == '__main__':
-#	zipf()
-	binomial_dist(sys.argv[1])
-#	inputParser3(sys.argv[1])
+	inputParser3(sys.argv[1])

@@ -43,8 +43,10 @@ def add_cache_request_time(cache,time,request):
 	cache.request_list[request.reqId]=time	
 
 def get_latency(request, cache, time):
-	cache.miss_lat += (time - cache.request_list[request.reqId])
-	cache.lat_count += 1
+
+	cache.miss_lat = (float(cache.miss_lat) + float(time - cache.request_list[request.reqId]) )/2
+#	cache.miss_lat += (time - cache.request_list[request.reqId])
+#	cache.lat_count += 1
 	del cache.request_list[request.reqId]
 
 def display(*arg):
