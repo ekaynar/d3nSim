@@ -7,7 +7,7 @@ def inputParser(fin,joblist):
         fdout = open("fout", 'w')
         for line in fd:
 		val = line.split(" ")
-		for i in range(4):
+		for i in range(32):
 			key=val[1]+"-"+val[2]+"_"+str(i)
 			fdout.write(key+"\n")
 			joblist.append(key)
@@ -28,12 +28,10 @@ def inputParser3(fin):
 				fdout.write(key+"\n")
         	fdout.close()
 
-def inputParser2(fin):
-	joblist=[]
+def inputParser2(fin,jobList):
         fdout = open(fin, 'r')
 	for line in fdout:
-		joblist.append(line.replace("\n",""))
+		jobList.append(line.replace("\n",""))
         fdout.close()
-	return joblist
 if __name__ == '__main__':
 	inputParser3(sys.argv[1])

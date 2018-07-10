@@ -20,9 +20,12 @@ def gen_config(array,array2,fname):
                 'obj_size',
                 'hashType',
                 'log_file',
-                'input',
+		'input1','input2','input3','input4','input5','input6','input7','input8','input9','input0',
+		'input',
                 'res_file',
-		'adaptive_algorithm'
+		'adaptive_algorithm',
+		'warmup_time',
+		'algorithm_time',
  ]
 
 	network=[

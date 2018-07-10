@@ -1,5 +1,16 @@
 import collections
-import re
+import re, os
+
+def delete_old_files(config):
+        try:
+                log_files =["shadow.log","position","latency" ]
+                for filename in log_files:
+                        if os.path.exists(filename):
+                                os.remove(filename)
+                        else:
+                                filename
+        except OSError:
+                pass
 
 def get_cache_size(config,obj_size,name):
 	size=0
@@ -20,6 +31,13 @@ def get_obj_size(config):
                 if items[1] =="M" or items[1] =="m":
                         obj_size=(int(items[0])*1024*1024)
         return obj_size
+
+def check_remaning_events(clientList):
+	for key in clientList.keys():
+		if (clientList[key]._trace):
+			return 1
+	return 0
+
 
 def get_link_id(source,dest):
         slayer=source[0]
@@ -44,9 +62,9 @@ def add_cache_request_time(cache,time,request):
 
 def get_latency(request, cache, time):
 
-	cache.miss_lat = (float(cache.miss_lat) + float(time - cache.request_list[request.reqId]) )/2
+	cache.miss_lat += float(time - cache.request_list[request.reqId])
 #	cache.miss_lat += (time - cache.request_list[request.reqId])
-#	cache.lat_count += 1
+	cache.lat_count += 1
 	del cache.request_list[request.reqId]
 
 def display(*arg):

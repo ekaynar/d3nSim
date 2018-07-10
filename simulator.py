@@ -155,8 +155,8 @@ def SendEvent(request,hierarchy,logger,env,links):
 		if sLinkId: 
 			yield links[sLinkId].get(links[sLinkId].capacity)
 			latency = float(request.size) / links[sLinkId].capacity
-		else:
-			yield links["Cephout"].get(links["Cephout"].capacity)
+#		else:
+#			yield links["Cephout"].get(links["Cephout"].capacity)
 
 		if dLinkId:
 			yield links[dLinkId].get(links[dLinkId].capacity)
@@ -168,8 +168,8 @@ def SendEvent(request,hierarchy,logger,env,links):
 		# Put the required amount of Bandwidth
 		if sLinkId:
 			yield links[sLinkId].put(links[sLinkId].capacity)
-		else:
-			yield links["Cephout"].put(links["Cephout"].capacity)
+#		else:
+#			yield links["Cephout"].put(links["Cephout"].capacity)
 
 		if dLinkId:
 			yield links[dLinkId].put(links[dLinkId].capacity)
@@ -186,8 +186,10 @@ def SendEvent(request,hierarchy,logger,env,links):
 		size = float(request.size)/float(obj_size)
 		hierarchy[cacheId].insert(request.key,size)
 		request.set_info("Remote_L2")
-		if ( int(request.fetch.split("-")[0]) == 2):
-			utils.get_latency(request,hierarchy[cacheId],env.now)		
+		#if ( int(request.fetch.split("-")[0]) == 2):
+		#	utils.get_latency(request,hierarchy[cacheId],env.now)		
+		#if ( int(request.fetch.split("-")[0]) == 2):
+		utils.get_latency(request,hierarchy[cacheId],env.now)		
 	else:
 		utils.display(env,logger,request,"Local L2")
 		request.set_info("Local_L2")
@@ -223,11 +225,7 @@ def CompletionEvent(request,hierarchy,logger,env,links):
 	sim_req_num +=1
 	global  sim_req_comp
 	global  count_w
-#	global  warmup
-#	if (int(env.now)>26):  
 	count_w+=1
-#		if (warmup == 0):
-#			warmup = env.now
 	sim_req_comp.append(request.get_compTime())
 	global  sim_end
 	sim_end = env.now
@@ -248,11 +246,11 @@ def generate_event(request,hierarchy,logger,env,links):
 
 		
 def request_generator(client,hierarchy,logger,env,links,reqNum):
-#	if client._trace:
-	if jobList:
+	if client._trace:
+#	if jobList:
 		for i in range(int(reqNum)) :
-			#obj=client._trace.popleft()
-			obj=jobList.popleft()
+			obj=client._trace.popleft()
+#			obj=jobList.popleft()
 			reqid=int(reqList.popleft())
 			path,destination,source=[],[],[]
 	                destination.extend([1,client._rackid])
@@ -262,14 +260,18 @@ def request_generator(client,hierarchy,logger,env,links,reqNum):
 			generate_event(req,hierarchy,logger,env,links)
 
 
-def adaptive_algorithm(hierarchy,env,shadow_window,nodeNum):
+def adaptive_algorithm(hierarchy,env,shadow_window,nodeNum,warmup,a_time):
 	global algo_start
-	for i in range(6):
+	while(utils.check_remaning_events(clientList)):
+	#for i in range(10):
 		if (algo_start == False):
-			yield env.timeout(350)
+			yield env.timeout(warmup)
 			algo_start =True
+			#adaptive.reset_counters(hierarchy,nodeNum)
 		else:
-			yield env.timeout(200)
+			yield env.timeout(a_time)
+	
+	#	adaptive.set_cache(hierarchy,env,shadow_window,nodeNum)
 		adaptive.set_cache_size(hierarchy,env,shadow_window,nodeNum)
 		
 if __name__ == '__main__':
@@ -304,45 +306,47 @@ if __name__ == '__main__':
 	logger.info('Creating Enviroment...')
 	print 'Creating Enviroment...'
 
-	try:
-    		os.remove("shadow.log")
-    		os.remove("position")
-	except OSError:
-    		pass
-
+	utils.delete_old_files(config)
 
 	logger.info('Parsing Trace File...')
 	print "Parsing Trace File..."	
 	jobList=deque()
 	inputParser(config.get('Simulation', 'input'),jobList)
 	# Instantiate a thread pool with N worker threads
-        clientNum = int(config.get('Simulation', 'clientNum'))
+     
+
+	clientNum = int(config.get('Simulation', 'clientNum'))
         nodeNum = int(config.get('Simulation', 'nodeNum'))
         threadNum = int(config.get('Simulation', 'threadNum'))
         shadow_window = int(config.get('Simulation', 'shadow_window'))
         f_adapt = config.get('Simulation', 'adaptive_algorithm')
+        warmup = int(config.get('Simulation', 'warmup_time'))
+        a_time = int(config.get('Simulation', 'algorithm_time'))
 
 	clientList={}
 	counter=0
 	reqList=deque()
 
 	obj_size=utils.get_obj_size(config)
-	for i in xrange(len(jobList)):
-		reqList.append(i+1)
-	
+
 	jobList2=deque()
+	inputs=["input1","input2","input3","input4","input5"]
 	for i in range(nodeNum):
 		for j in range(clientNum):
-			clientList[counter]=Client(counter,i,jobList2,obj_size,threadNum)	
+			jobList3=deque()
+			inputParser2(config.get('Simulation', inputs[i]),jobList3)
+			clientList[counter]=Client(counter,i,jobList3,obj_size,threadNum)	
 			counter+=1	
 	
-	
+#	for i in xrange(len(jobList)):
+	for i in xrange(len(jobList3)*nodeNum):
+		reqList.append(i+1)
 	pool = multiThread.ThreadPool(clientNum)
 	for key in clientList.keys():
 		pool.add_task(request_generator, clientList[key],hierarchy,logger,env,links,threadNum)
 	pool.wait_completion()
 	if( f_adapt == 'true'):
-		env.process(adaptive_algorithm(hierarchy,env,shadow_window,nodeNum))
+		env.process(adaptive_algorithm(hierarchy,env,shadow_window,nodeNum,warmup,a_time))
 	
 	logger.info('Running Simulation...')
 	print "Running Simulation..."	

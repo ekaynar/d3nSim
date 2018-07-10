@@ -1,7 +1,7 @@
 from lru import LRU
 from collections import deque
 import random
-
+from bisect import bisect_left
 class Cache:
 
 	"""Class representing D3N."""
@@ -51,8 +51,10 @@ class Cache:
 			self.cache = LRU(self._size)		
 			self.shadow=LRU(full_size)
 			self.hist=[]	
+			self.prefix_sum=[]	
 			for i in range(full_size):			
 				self.hist.append(0)
+				self.prefix_sum.append(0)
 		# Statistics
 		self._hit_count = 0
 		self._miss_count = 0
@@ -96,7 +98,6 @@ class Cache:
 		                        self.spaceLeft -= int(size)	
 			
 
-	
 	def read(self, key, size):
 		if self._layer == "BE":
 			return 1
@@ -115,13 +116,9 @@ class Cache:
 				self._miss_count+=1
 	
 			if self.shadow.has_key(key):
-				count=0
-                                for i in self.shadow.keys():
-                                        if i == key:
-                                                self.hist[count]+=1
-                                                break
-                                        count+=1
-                                self.shadow[key]=1
+				ind=self.shadow.keys().index(key)
+                                self.hist[ind]+=1
+				self.shadow[key]=1
 			else:
 				self.shadow[key]=1
 			
