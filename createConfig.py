@@ -26,6 +26,7 @@ def gen_config(array,array2,fname):
 		'adaptive_algorithm',
 		'warmup_time',
 		'algorithm_time',
+		'position',
  ]
 
 	network=[

@@ -13,12 +13,14 @@ from inputParser import inputParser2
 import multiprocessing as mp
 from collections import deque
 
-cephLayer = 3
+cephLayer = 0
 algo_start = False
 
 count_w=0
 warmup=sim_req_num=sim_end=0
 sim_req_comp=[]
+slow = False
+
 def build_network(config,logger,env):
 	# 1 Gbps = 125 MB/s
 	# 10 Gbps = 1250 MB/s
@@ -28,28 +30,41 @@ def build_network(config,logger,env):
 	L2_In = float(config.get('Network', 'L2_In').split("G")[0])/8*1000*1000*1000
 	L1_Out = float(config.get('Network', 'L1_Out').split("G")[0])/8*1000*1000*1000
 	L2_Out = float(config.get('Network', 'L2_Out').split("G")[0])/8*1000*1000*1000
-	numNodes = int(config.get('Simulation', 'nodeNum'))
-        if config.get('Simulation', 'L1') == "true" :
-                for i in range(numNodes):
-			linkId = "L1in1r"+str(i)
-                        links[linkId]=simpy.Container(env, L1_In, init=L1_In)
-			linkId = "L1out0r"+str(i)
-                        links[linkId]=simpy.Container(env, L1_Out, init=L1_Out)
 	
-	if config.get('Simulation', 'L2') == "true" :		
+	numNodes = int(config.get('Simulation', 'nodeNum'))
+	layer = int(config.get('Simulation', 'layer'))
+	for l in range(1,layer+1):
 		for i in range(numNodes):
-			linkId = "L2in1r"+str(i)
-                        links[linkId]=simpy.Container(env, L2_In, init=L2_In)
-			linkId = "L2out0r"+str(i)
-                        links[linkId]=simpy.Container(env, L2_Out, init=L2_Out)
+			link_name = "L"+str(l)+"_In"
+			linkId = "L"+str(l)+"in1r"+str(i)
+			speed = float(config.get('Network', link_name).split("G")[0])/8*1000*1000*1000
+			links[linkId]=simpy.Container(env, speed, init=speed)
+			link_name = "L"+str(l)+"_Out"
+			linkId = "L"+str(l)+"out0r"+str(i)
+			speed = float(config.get('Network', link_name).split("G")[0])/8*1000*1000*1000
+			links[linkId]=simpy.Container(env, speed, init=speed)
+		
+#        if config.get('Simulation', 'L1') == "true" :
+#                for i in range(numNodes):
+#			linkId = "L1in1r"+str(i)
+#                        links[linkId]=simpy.Container(env, L1_In, init=L1_In)
+#			linkId = "L1out0r"+str(i)
+#                        links[linkId]=simpy.Container(env, L1_Out, init=L1_Out)
+#	
+#	if config.get('Simulation', 'L2') == "true" :		
+#		for i in range(numNodes):
+#			linkId = "L2in1r"+str(i)
+#                        links[linkId]=simpy.Container(env, L2_In, init=L2_In)
+#			linkId = "L2out0r"+str(i)
+#                        links[linkId]=simpy.Container(env, L2_Out, init=L2_Out)
 	linkId = "Cephout"
 	links[linkId]=simpy.Container(env, L2_In, init=L2_In)	
-
 	return links
 
 
 
 def build_d3n(config, logger,env):
+	global cephLayer
 	#Build the cache hierarchy with the given configuration
 	hierarchy = {}
 	numNodes = int(config.get('Simulation', 'nodeNum'))
@@ -60,22 +75,29 @@ def build_d3n(config, logger,env):
 		hr = loadDistribution.consistentHashing(numNodes)	
 	elif (hashType == "rr"):
 		hr = numNodes
-	caches_l1,caches_l2, backend= {},{},{}
-	if config.get('Simulation', 'L1') == "true" :
-		cephLayer=2
+	layer = int(config.get('Simulation', 'layer'))
+	print "Building D3N with", layer, "layers"
+	cephLayer = layer+1
+	
+	for l in range(1,layer+1):
 		for i in range(numNodes):
-			name = "1-"+str(i)
-			hierarchy[name]=build_cache(config, name, 'L1', hr, hashType,logger)
-	if config.get('Simulation', 'L2') == "true" :
-		cephLayer=3
-		for i in range(numNodes):
-			name = "2-"+str(i)
-			hierarchy[name]=build_cache(config, name, 'L2', hr, hashType, logger)
+			name = str(l)+"-"+str(i)
+			layer_name = "L"+str(l)
+			hierarchy[name]=build_cache(config, name, layer_name, hr, hashType,logger)
+
+#	if config.get('Simulation', 'L1') == "true" :
+#		for i in range(numNodes):
+#			name = "1-"+str(i)
+#			hierarchy[name]=build_cache(config, name, 'L1', hr, hashType,logger)
+#	if config.get('Simulation', 'L2') == "true" :
+#		for i in range(numNodes):
+#			name = "2-"+str(i)
+#			hierarchy[name]=build_cache(config, name, 'L2', hr, hashType, logger)
 
 	backend=build_cache(config, name, 'BE', hr, hashType, logger)
 	name = str(cephLayer)+"-0"
 	hierarchy[name]=backend	
-	
+#	print hierarchy	
 	links = build_network(config,logger,env)
 
 	return hierarchy, links
@@ -107,15 +129,30 @@ def hit(request,hierarchy,logger,env,links,cacheId):
      	request.dest=dest
         generate_event(request,hierarchy,logger,env,links)
 
-
-def miss(request,hierarchy,logger,env,links,cacheId):
-        request.path.append( [ request.dest[0],request.dest[1] ] )
+def miss_one_layer(request,hierarchy,logger,env,links,cacheId):
+	request.path.append( [request.dest[0],request.dest[1] ] )
         utils.display(env,logger,request,"Miss")
         dest=[]
+	dest.extend([(int(request.dest[0])+1) ,0])	
+	cid= str(dest[0])+"-"+str(dest[1])
+	request.source = request.dest
+	r = hierarchy[cid].read(request.key,request.size)
+	if r:
+		request.dest = dest
+		hit(request,hierarchy,logger,env,links,cacheId)
+
+
+def miss(request,hierarchy,logger,env,links,cacheId):
+	request.path.append( [ request.dest[0],request.dest[1] ] )
+        utils.display(env,logger,request,"Miss")
+        dest=[]
+	
 	dest.extend([(int(request.dest[0])+1) ,int(hierarchy[cacheId].get_l2_address(request.key))])
-        request.source = request.dest
-        cid= str(dest[0])+"-"+str(dest[1])
+	cid= str(dest[0])+"-"+str(dest[1])
+	request.source = request.dest
+        	
         r = hierarchy[cid].read(request.key,request.size)
+	
         if r:
                 if ((request.dest[1] == dest[1] ) and (request.dest[0] == 1)):
                         hierarchy[cacheId]._miss_count-=1
@@ -135,7 +172,12 @@ def miss(request,hierarchy,logger,env,links,cacheId):
 
 
 def readEvent(request,hierarchy,logger,env,links):
-        yield env.timeout(0)
+	global cephLayer
+	if ( int(request.client._id) == int(3) and int(request.source[0])==int(0) ):	
+		 yield env.timeout(32)
+	else:
+		 yield env.timeout(0)
+#	yield env.timeout(0)
         cacheId = str(request.dest[0])+"-"+str(request.dest[1])
         r = hierarchy[cacheId].read(request.key,request.size)
         if r:
@@ -143,11 +185,14 @@ def readEvent(request,hierarchy,logger,env,links):
 				
         else:
 		utils.add_cache_request_time(hierarchy[cacheId],env.now,request)
-		miss(request,hierarchy,logger,env,links,cacheId)
-				
+		if cephLayer > 2:	
+			miss(request,hierarchy,logger,env,links,cacheId)
+		else:
+			miss_one_layer(request,hierarchy,logger,env,links,cacheId)	
+			
 def SendEvent(request,hierarchy,logger,env,links):
-
-	sLinkId,dLinkId = utils.get_link_id(request.source, request.dest)
+	
+	sLinkId,dLinkId = utils.get_link_id(request.source, request.dest, cephLayer)
 	if (request.source[0]==2 and request.dest[0]==1 and request.source[1]==request.dest[1]):
 		yield env.timeout(0)	
 	else:
@@ -205,14 +250,13 @@ def SendEvent(request,hierarchy,logger,env,links):
 
 	
 def CompletionEvent(request,hierarchy,logger,env,links):
-	sLinkId,dLinkId = utils.get_link_id(request.source, request.dest)
+	sLinkId,dLinkId = utils.get_link_id(request.source, request.dest,cephLayer)
 	
 	if sLinkId:
                 yield links[sLinkId].get(links[sLinkId].capacity)
 		latency = float(request.size) / links[sLinkId].capacity
         if dLinkId:
 		print "Error on Completion"
-	
 	yield env.timeout(latency)
 	if sLinkId:
                 yield links[sLinkId].put(links[sLinkId].capacity)
@@ -220,6 +264,7 @@ def CompletionEvent(request,hierarchy,logger,env,links):
 	request.set_endTime(env.now)
 	request.set_compTime( request.endTime - request.startTime)
 
+	request.client.ave_latency += (request.endTime - request.startTime)
 	
 	global  sim_req_num
 	sim_req_num +=1
@@ -243,7 +288,7 @@ def generate_event(request,hierarchy,logger,env,links):
 		env.process(SendEvent(request,hierarchy,logger,env,links))
 	elif request.rtype == "completion":
 		env.process(CompletionEvent(request,hierarchy,logger,env,links))
-
+	
 		
 def request_generator(client,hierarchy,logger,env,links,reqNum):
 	if client._trace:
@@ -256,23 +301,26 @@ def request_generator(client,hierarchy,logger,env,links,reqNum):
 	                destination.extend([1,client._rackid])
 			source=[0,client._rackid]
 	                path = [[0,client._rackid]]
+			client.request_count += 1
 			req = Request(reqid,source,destination,obj,client._obj_size,"read_req",path,client,"")
 			generate_event(req,hierarchy,logger,env,links)
-
-
-def adaptive_algorithm(hierarchy,env,shadow_window,nodeNum,warmup,a_time):
+					
+	else:
+		#print "CLient Finished", client._id
+		a=0
+def adaptive_algorithm(hierarchy,env,shadow_window,nodeNum,warmup,a_time,fname):
 	global algo_start
 	while(utils.check_remaning_events(clientList)):
-	#for i in range(10):
 		if (algo_start == False):
 			yield env.timeout(warmup)
-			algo_start =True
+			algo_start = True
 			#adaptive.reset_counters(hierarchy,nodeNum)
 		else:
 			yield env.timeout(a_time)
 	
-	#	adaptive.set_cache(hierarchy,env,shadow_window,nodeNum)
-		adaptive.set_cache_size(hierarchy,env,shadow_window,nodeNum)
+		utils.printHitMissInfo2(hierarchy)
+	#	utils.cacheinfo2(hierarchy,config)
+		#adaptive.set_cache_size(hierarchy,env,shadow_window,nodeNum,fname)
 		
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description='Simulate a cache')
@@ -322,6 +370,7 @@ if __name__ == '__main__':
         f_adapt = config.get('Simulation', 'adaptive_algorithm')
         warmup = int(config.get('Simulation', 'warmup_time'))
         a_time = int(config.get('Simulation', 'algorithm_time'))
+        f_position = config.get('Simulation', 'position')
 
 	clientList={}
 	counter=0
@@ -330,23 +379,29 @@ if __name__ == '__main__':
 	obj_size=utils.get_obj_size(config)
 
 	jobList2=deque()
-	inputs=["input1","input2","input3","input4","input5"]
+	inputs=["input1","input2","input3","input4","input5","input6","input7","input8","input9","input0"]
 	for i in range(nodeNum):
+#	for i in range(1):
 		for j in range(clientNum):
 			jobList3=deque()
 			inputParser2(config.get('Simulation', inputs[i]),jobList3)
 			clientList[counter]=Client(counter,i,jobList3,obj_size,threadNum)	
 			counter+=1	
+	#jobList3=deque()
+	#print counter
+	#inputParser2(config.get('Simulation', inputs[0]),jobList3)
+	#clientList[counter]=Client(counter,0,jobList3,obj_size,threadNum)
+	#counter+=1
 	
 #	for i in xrange(len(jobList)):
 	for i in xrange(len(jobList3)*nodeNum):
-		reqList.append(i+1)
+		reqList.append(i)
 	pool = multiThread.ThreadPool(clientNum)
 	for key in clientList.keys():
 		pool.add_task(request_generator, clientList[key],hierarchy,logger,env,links,threadNum)
 	pool.wait_completion()
 	if( f_adapt == 'true'):
-		env.process(adaptive_algorithm(hierarchy,env,shadow_window,nodeNum,warmup,a_time))
+		env.process(adaptive_algorithm(hierarchy,env,shadow_window,nodeNum,warmup,a_time,f_position))
 	
 	logger.info('Running Simulation...')
 	print "Running Simulation..."	
@@ -366,6 +421,9 @@ if __name__ == '__main__':
 	stats["warmup"]=warmup
 	stats["count_w"]=count_w
 
+	print "sum client latency, # of req, ave client latency "
+	for i in clientList.keys():
+		print clientList[i].ave_latency,clientList[i].request_count, (float(clientList[i].ave_latency) / clientList[i].request_count)
 
 	res_file=config.get('Simulation', 'res_file')
 	fd = open(res_file,"a")

@@ -12,12 +12,13 @@ class Client:
 		self._pool = multiThread.ThreadPool(1) 
 		self._fname = str(id)
 		#self._jlist = np.asarray(self._trace)
-
+		self.ave_latency = 0
+		self.request_count = 0
 	def _log1(self,line):
 		f = open(self._fname,"a")
 		f.write(line)
 		f.close()
-
+	
 
 
 

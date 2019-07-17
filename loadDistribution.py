@@ -24,7 +24,7 @@ def rendezvousHashing(nodeNum):
 
 def consistentHashing(nodeNum):
 	nodes=setUp("consistent",nodeNum)
-	hr = HashRing(nodes,vnodes=200)
+	hr = HashRing(nodes,vnodes=200,hash_fn='ketama')
 	return hr
 
 

@@ -100,6 +100,7 @@ class Cache:
 
 	def read(self, key, size):
 		if self._layer == "BE":
+			self._hit_count+=1
 			return 1
                 if self.zerosize == True:
                         return None
@@ -211,6 +212,6 @@ class Cache:
 		elif (self._hash_type == Cache.rendezvous):
 			return self.hash_ring.find_node(key)	
 		elif (self._hash_type == Cache.rr):
-			val=key.split("_")[1]
+			val=key.split("_")[3]
 			res = int(val) % int(self.hash_ring)
 			return res

@@ -2,8 +2,9 @@ import collections
 import re, os
 
 def delete_old_files(config):
+	f_position = config.get('Simulation', 'position')
         try:
-                log_files =["shadow.log","position","latency" ]
+                log_files =["shadow.log",f_position,"latency" ]
                 for filename in log_files:
                         if os.path.exists(filename):
                                 os.remove(filename)
@@ -39,13 +40,13 @@ def check_remaning_events(clientList):
 	return 0
 
 
-def get_link_id(source,dest):
+def get_link_id(source,dest,cephLayer):
         slayer=source[0]
         srack=source[1]
         dlayer=dest[0]
         drack=dest[1]
         sLinkId=dLinkId=None
-        if (slayer == 3):
+        if (slayer == cephLayer):
                 sLinkId = None
         else:
                 sLinkId = "L"+str(slayer)+"out0r"+str(srack)
@@ -94,9 +95,10 @@ def display(*arg):
 
 def missCost(hierarchy,config,fd):
 	RackNum=int(config.get('Simulation', 'nodeNum'))-1
+	layer=int(config.get('Simulation', 'layer'))
 	for i in range(RackNum,-1,-1):
 		print""""-------Rack #"""+str(i)+"-------"
-		for j in range(2,0,-1):
+		for j in range(layer,0,-1):
 			cacheId=str(j)+"-"+str(i)
 			out = str(cacheId) + "Miss Latenyc:"+ str(hierarchy[cacheId].miss_lat) + " Miss Count:" + str(hierarchy[cacheId].lat_count)
 			print out
@@ -112,11 +114,11 @@ def printSetupInfo(config,fd):
 	fd.write("-----------------------------------------------------\n")
 	RackNum=int(config.get('Simulation', 'nodeNum'))
 	policy=config.get('Simulation', 'L1_rep')
-	LayerNum=0
-	if (config.get('Simulation', 'L1') == 'true'):
-		LayerNum+=1
-	if (config.get('Simulation', 'L2') == 'true'):
-		LayerNum+=1
+	LayerNum=int(config.get('Simulation', 'layer'))
+#	if (config.get('Simulation', 'L1') == 'true'):
+#		LayerNum+=1
+#	if (config.get('Simulation', 'L2') == 'true'):
+#		LayerNum+=1
 	out = "# of Racks: "+str(RackNum)+"\n"
 	fd.write(out)
 	out = "# of Layers: "+str(LayerNum)+"\n"
@@ -171,8 +173,32 @@ def printHitMissInfo(hierarchy,fd):
                 fd.write("  ".join((val.ljust(width) for val, width in zip(row, widths))))
                 fd.write("\n")
 
-def printRequestInfo(fd,stats,config):
+def printHitMissInfo2(hierarchy):
+        cache = collections.OrderedDict(sorted(hierarchy.items()))
+        data,arr=[],[]
+        headers=["Cache ID", "Hit Count", "Miss Count", "Miss Ratio"]
+        data.append(headers)
+        print "Cache Statistics"
+        print "-----------------------------------------------------"
+        for key in cache.keys():
+                arr.append(key)
+                arr.append(str(cache[key]._hit_count))
+                arr.append(str(cache[key]._miss_count))
+                if (cache[key]._hit_count+cache[key]._miss_count) != 0:
+                        mr = float(cache[key]._miss_count)/(cache[key]._hit_count+cache[key]._miss_count)
+                        arr.append(str(mr))
+                else:
+                        arr.append("0")
+                data.append(arr)
+                arr=[]
 
+
+        widths = [max(map(len, col)) for col in zip(*data)]
+        for row in data:
+                print "  ".join((val.ljust(width) for val, width in zip(row, widths)))
+
+
+def printRequestInfo(fd,stats,config):
 
 	obj_size=get_obj_size(config)
 	print "Request Statistics"
@@ -197,16 +223,21 @@ def printRequestInfo(fd,stats,config):
 	
 	fd.write(out)
 
+def get_client_ave_latency(client):
+	
+	return 0	
+
 
 def cacheinfo2(hierarchy,config):
 	RackNum=int(config.get('Simulation', 'nodeNum'))-1
- 	print""""-------Rack #"""+str(3)+"-------"
-
-        cacheId="3-0"
+	layer=int(config.get('Simulation', 'layer'))
+	 
+	print"-------Ceph Backend-------"
+	cacheId=str(layer+1)+"-0"
 	print cacheId, "Size",hierarchy[cacheId].cache.get_size(),hierarchy[cacheId]._replace_pol,hierarchy[cacheId]._hit_count, hierarchy[cacheId]._miss_count
         for i in range(RackNum,-1,-1):
                 print""""-------Rack #"""+str(i)+"-------"
-                for j in range(2,0,-1):
+                for j in range(layer,0,-1):
                         cacheId=str(j)+"-"+str(i)
                         #print cacheId, hierarchy[cacheId].cache, "Size",hierarchy[cacheId].cache.get_size(), "Shadow", hierarchy[cacheId].shadow,"Size:",hierarchy[cacheId].shadow.get_size()," Hist", hierarchy[cacheId].hist
                         print cacheId, "Size",hierarchy[cacheId].cache.get_size(),hierarchy[cacheId]._replace_pol,hierarchy[cacheId]._hit_count, hierarchy[cacheId]._miss_count
